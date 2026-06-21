@@ -30,14 +30,14 @@
 
   </div>
 
-  <!-- 4) Burbuja flotante del carrito -->
-  <button class="carrito-burbuja" id="carritoBurbuja" aria-label="Ver pedido" hidden>
-    <!-- ícono de bolsa simple en SVG (sin librerías) -->
-    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
-      <path fill="currentColor" d="M7 7V6a5 5 0 0 1 10 0v1h3a1 1 0 0 1 1 1l-1.2 12.1A2 2 0 0 1 17.8 22H6.2a2 2 0 0 1-2-1.9L3 8a1 1 0 0 1 1-1h3Zm2 0h6V6a3 3 0 0 0-6 0v1Z"/>
-    </svg>
-    <span class="carrito-burbuja__badge" id="carritoBadge">0</span>
-  </button>
+  <!-- 4) Barra fija de pedido (abajo, ancho completo). Solo visible si hay items. -->
+  <div class="barra-pedido" id="barraPedido" hidden>
+    <div class="barra-pedido__info">
+      <span class="barra-pedido__cant" id="barraCant">0 productos</span>
+      <span class="barra-pedido__total" id="barraTotal">$0</span>
+    </div>
+    <button class="barra-pedido__btn" id="barraVerPedido">Ver pedido</button>
+  </div>
 
   <!-- Fondo oscuro detrás del panel del carrito -->
   <div class="overlay" id="overlay" hidden></div>

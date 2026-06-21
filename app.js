@@ -264,15 +264,19 @@ function refrescarControl(idProducto) {
   }
 }
 
-// Actualiza el contador de la burbuja y la muestra u oculta.
+// Actualiza la barra fija de abajo (cantidad + total) y la muestra u oculta.
 function refrescarBurbuja() {
-  const burbuja = document.getElementById("carritoBurbuja");
-  const badge = document.getElementById("carritoBadge");
-  const total = contarItems();
+  const barra = document.getElementById("barraPedido");
+  const cantEl = document.getElementById("barraCant");
+  const totalEl = document.getElementById("barraTotal");
+  const cantidad = contarItems();
 
-  badge.textContent = total;
-  // Si el carrito está vacío, escondemos la burbuja para que se vea prolijo.
-  burbuja.hidden = total === 0;
+  // "1 producto" / "3 productos" (singular o plural según corresponda).
+  cantEl.textContent = cantidad + (cantidad === 1 ? " producto" : " productos");
+  totalEl.textContent = formatearPrecio(calcularTotal());
+
+  // Si el carrito está vacío, escondemos la barra para que se vea prolijo.
+  barra.hidden = cantidad === 0;
 }
 
 // Suma cuántas unidades hay en total en el carrito.
@@ -297,7 +301,7 @@ function calcularTotal() {
 
 function conectarPanel() {
   document
-    .getElementById("carritoBurbuja")
+    .getElementById("barraVerPedido")
     .addEventListener("click", abrirPanel);
   document.getElementById("sheetCerrar").addEventListener("click", cerrarPanel);
   document.getElementById("overlay").addEventListener("click", cerrarPanel);
