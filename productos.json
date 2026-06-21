@@ -1,0 +1,148 @@
+{
+  "categorias": [
+    {
+      "id": "tartas",
+      "nombre": "Tartas 24cm",
+      "productos": [
+        {
+          "id": "tarta-nuez",
+          "nombre": "Tarta de Nuez",
+          "descripcion": "Base de nuez con dulce de leche, crema y frutos rojos",
+          "precio": 45000,
+          "imagen": "img/tarta-nuez.jpg"
+        },
+        {
+          "id": "rogel",
+          "nombre": "Rogel",
+          "descripcion": "Capas crocantes rellenas con abundante dulce de leche y con merengue",
+          "precio": 32000,
+          "imagen": "img/rogel.jpg"
+        },
+        {
+          "id": "lemon-pie",
+          "nombre": "Lemon Pie",
+          "descripcion": "Tarta clásica con masa sablée, crema de limón y merengue suizo",
+          "precio": 40000,
+          "imagen": "img/lemon-pie.jpg"
+        },
+        {
+          "id": "cheesecake",
+          "nombre": "Cheesecake",
+          "descripcion": "Estilo New York, con base de galletitas y dulce casero de frambuesa",
+          "precio": 48000,
+          "imagen": "img/cheesecake.jpg"
+        },
+        {
+          "id": "brownie-tarta",
+          "nombre": "Brownie",
+          "descripcion": "Base de brownie con dulce de leche, crema y hilos de chocolate",
+          "precio": 30000,
+          "imagen": "img/brownie-tarta.jpg"
+        }
+      ]
+    },
+    {
+      "id": "bocaditos",
+      "nombre": "Bocaditos",
+      "nota": "Box mínimo 20 unidades a elección",
+      "productos": [
+        {
+          "id": "rogelitos",
+          "nombre": "Rogelitos",
+          "descripcion": "Mini rogel",
+          "precio": 950,
+          "imagen": "img/rogelitos.jpg"
+        },
+        {
+          "id": "brownie-bocadito",
+          "nombre": "Brownie",
+          "descripcion": "Mini brownie con dulce de leche",
+          "precio": 800,
+          "imagen": "img/brownie-bocadito.jpg"
+        },
+        {
+          "id": "cheesecake-bocadito",
+          "nombre": "Cheesecake",
+          "descripcion": "Mini cheesecake con dulce de frambuesa",
+          "precio": 1500,
+          "imagen": "img/cheesecake-bocadito.jpg"
+        },
+        {
+          "id": "lemonpie-bocadito",
+          "nombre": "Lemon Pie",
+          "descripcion": "Mini lemon pie con merengue",
+          "precio": 1200,
+          "imagen": "img/lemonpie-bocadito.jpg"
+        },
+        {
+          "id": "coco",
+          "nombre": "Coco",
+          "descripcion": "Mini bocadito de coco",
+          "precio": 800,
+          "imagen": "img/coco.jpg"
+        }
+      ]
+    },
+    {
+      "id": "galletas",
+      "nombre": "Galletas",
+      "nota": "Se pueden solicitar el mismo día si hay stock; si no, pedir el día anterior",
+      "productos": [
+        {
+          "id": "pepas",
+          "nombre": "Pepas x12",
+          "descripcion": "Galletitas dulces con centro de membrillo",
+          "precio": 12000,
+          "imagen": "img/pepas.jpg"
+        },
+        {
+          "id": "cookies-chips",
+          "nombre": "Cookies Chips x6",
+          "descripcion": "Galletitas dulces de vainilla con chip de chocolate negro",
+          "precio": 13000,
+          "imagen": "img/cookies-chips.jpg"
+        },
+        {
+          "id": "chocoberry",
+          "nombre": "Chocoberry x6",
+          "descripcion": "Galletitas dulces de chocolate con chip de chocolate blanco y un corazón de frambuesa",
+          "precio": 14500,
+          "imagen": "img/chocoberry.jpg"
+        }
+      ]
+    },
+    {
+      "id": "cuchareables",
+      "nombre": "Cuchareables 10cm",
+      "productos": [
+        {
+          "id": "lemonpie-cuchareable",
+          "nombre": "Lemon Pie",
+          "descripcion": "Tarta clásica con masa sablée, crema de limón y merengue suizo",
+          "precio": 12000,
+          "imagen": "img/lemonpie-cuchareable.jpg"
+        },
+        {
+          "id": "bombom",
+          "nombre": "Bombom",
+          "descripcion": "Base a elección con dulce de leche, crema y un toque de dulce casero de frambuesa con fruta",
+          "precio": 9500,
+          "imagen": "img/bombom.jpg"
+        }
+      ]
+    },
+    {
+      "id": "combos",
+      "nombre": "Combos",
+      "productos": [
+        {
+          "id": "combo-cumple",
+          "nombre": "Combo Cumpleaños",
+          "descripcion": "Tarta de 24cm a elección + 2 bandejas de bocaditos a elección (40 en total)",
+          "precio": 60000,
+          "imagen": "img/combo-cumple.jpg"
+        }
+      ]
+    }
+  ]
+}

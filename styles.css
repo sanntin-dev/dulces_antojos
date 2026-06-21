@@ -1,0 +1,423 @@
+/* ============================================================
+   Dulces Antojos — estilos
+   Estética cálida y artesanal, mobile-first.
+   Editá los colores acá abajo en :root y cambian en toda la app.
+   ============================================================ */
+
+:root {
+  --crema: #FBF7F0;        /* fondo principal */
+  --lavanda: #9B7FC7;      /* acento: botones, precios, chips activos */
+  --marron: #3D2E2A;       /* texto principal */
+  --marron-claro: #8a7a6d; /* texto secundario / descripciones */
+  --borde: #ECE3D2;        /* bordes sutiles de las cards */
+
+  /* Tono apenas distinto al de la card central, para el look "app en el celu"
+     incluso en pantallas grandes. */
+  --fondo-pagina: #F0E9DD;
+
+  --radio: 16px;           /* cantos redondeados generosos */
+
+  /* Tipografías: serif con carácter para títulos, sans simple para el resto.
+     Georgia y system-ui ya vienen en el dispositivo, no dependen de internet. */
+  --serif: Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+/* El atributo hidden tiene que ganarle siempre a cualquier display que pongamos
+   más abajo (sheet, burbuja, overlay), si no aparecerían cuando no deben. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--fondo-pagina);
+  color: var(--marron);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Contenedor central tipo "pantalla de celu" */
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--crema);
+  /* sombra muy suave solo para despegar la card del fondo en desktop */
+  box-shadow: 0 0 24px rgba(61, 46, 42, 0.06);
+}
+
+/* ---------- 1) Header ---------- */
+.header {
+  text-align: center;
+  padding: 28px 16px 18px;
+}
+
+.header__nombre {
+  font-family: var(--serif);
+  font-size: 30px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.header__lema {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--lavanda);
+  font-style: italic;
+}
+
+/* Logo de la marca, en el medio (entre el nombre y el lema). Ancho relativo
+   para que se adapte al celu; cambiá el max-width si lo querés más grande. */
+.header__logo {
+  display: block;
+  width: 70%;
+  max-width: 240px;
+  margin: 12px auto;
+  mix-blend-mode: multiply; /* funde el fondo blanco del logo con la crema */
+}
+
+/* ---------- 2) Chips de categorías (sticky + scrolleable) ---------- */
+.chips {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 16px;
+  background: var(--crema); /* fondo sólido para tapar contenido al scrollear */
+  border-bottom: 1px solid var(--borde);
+  /* ocultar la barra de scroll pero seguir permitiendo el deslizar */
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex: 0 0 auto;          /* no se encogen, mantienen su ancho */
+  border: 1px solid var(--borde);
+  background: var(--crema);
+  color: var(--marron);
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 9px 16px;       /* tap target cómodo */
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.chip--activo {
+  background: var(--lavanda);
+  color: var(--crema);
+  border-color: var(--lavanda);
+}
+
+/* ---------- 3) Secciones de productos ---------- */
+.catalogo {
+  padding: 8px 16px 120px; /* espacio extra abajo para que la burbuja no tape */
+}
+
+.estado {
+  text-align: center;
+  color: var(--marron-claro);
+  padding: 40px 16px;
+}
+
+.seccion {
+  /* scroll-margin: al saltar con scrollIntoView, deja lugar para los chips sticky */
+  scroll-margin-top: 70px;
+  padding-top: 22px;
+}
+
+.seccion__titulo {
+  font-family: var(--serif);
+  font-size: 22px;
+  margin: 0 0 4px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--borde); /* línea fina separadora */
+}
+
+.seccion__nota {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--marron-claro);
+  font-style: italic;
+}
+
+/* Card horizontal de producto */
+.card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.card__foto {
+  flex: 0 0 88px;
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: var(--borde);
+}
+
+/* Placeholder cuando la imagen todavía no existe (fondo lavanda clarito + ícono) */
+.card__placeholder {
+  flex: 0 0 88px;
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
+  background: #EDE4F4; /* lavanda muy clarito */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card__placeholder svg { color: var(--lavanda); }
+
+.card__info {
+  flex: 1 1 auto;
+  min-width: 0; /* permite que el texto se acomode sin desbordar */
+}
+
+.card__nombre {
+  font-family: var(--serif);
+  font-size: 17px;
+  margin: 0;
+}
+
+.card__desc {
+  font-size: 13px;
+  color: var(--marron-claro);
+  margin: 4px 0 8px;
+  line-height: 1.35;
+}
+
+.card__fila {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.card__precio {
+  font-weight: 700;
+  color: var(--lavanda);
+  font-size: 16px;
+}
+
+/* ---------- Control de cantidad (+ / – ) ---------- */
+.cant {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Botones redondos grandes, fáciles de tocar con el pulgar */
+.cant__btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--lavanda);
+  color: var(--crema);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.cant__btn:active { opacity: 0.8; }
+
+.cant__num {
+  min-width: 18px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+/* ---------- 4) Burbuja flotante del carrito ---------- */
+.carrito-burbuja {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: var(--lavanda);
+  color: var(--crema);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(61, 46, 42, 0.25);
+  z-index: 30;
+}
+
+.carrito-burbuja__badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--marron);
+  color: var(--crema);
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border: 2px solid var(--crema);
+}
+
+/* ---------- Overlay + bottom sheet ---------- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(61, 46, 42, 0.45);
+  z-index: 40;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  height: 70vh;
+  background: var(--crema);
+  border-radius: 20px 20px 0 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -4px 24px rgba(61, 46, 42, 0.2);
+}
+
+/* animación de entrada desde abajo */
+.sheet:not([hidden]) {
+  animation: subir 0.25s ease-out;
+}
+@keyframes subir {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.sheet__titulo {
+  font-family: var(--serif);
+  font-size: 22px;
+  margin: 0;
+}
+
+.sheet__cerrar {
+  background: none;
+  border: none;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--marron-claro);
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+}
+
+.sheet__items {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 8px 20px;
+}
+
+.sheet__vacio {
+  text-align: center;
+  color: var(--marron-claro);
+  padding: 30px 0;
+}
+
+/* Cada línea de item dentro del pedido */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.item__texto { flex: 1 1 auto; min-width: 0; }
+
+.item__nombre {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.item__detalle {
+  font-size: 13px;
+  color: var(--marron-claro);
+}
+
+.item__linea {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* botón de quitar (papelera/menos) */
+.item__quitar {
+  background: none;
+  border: 1px solid var(--borde);
+  color: var(--marron-claro);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.sheet__footer {
+  padding: 14px 20px calc(18px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--borde);
+}
+
+.sheet__total {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.btn-whatsapp {
+  width: 100%;
+  border: none;
+  background: var(--lavanda);
+  color: var(--crema);
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 700;
+  padding: 16px;
+  border-radius: var(--radio);
+  cursor: pointer;
+}
+.btn-whatsapp:active { opacity: 0.85; }
+.btn-whatsapp:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

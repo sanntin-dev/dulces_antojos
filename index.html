@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <!-- viewport: clave para que se vea bien en el celu y no permita zoom raro -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dulces Antojos — hecho en casa</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Toda la app vive dentro de este contenedor centrado (look "app en el celu") -->
+  <div class="app">
+
+    <!-- 1) Header -->
+    <header class="header">
+      <h1 class="header__nombre">Dulces Antojos</h1>
+      <!-- Logo en el medio, entre el nombre y el lema -->
+      <img class="header__logo" src="logo.jpg" alt="Dulces Antojos — hecho en casa" />
+      <p class="header__lema">— hecho en casa —</p>
+    </header>
+
+    <!-- 2) Barra de categorías (chips). Se llena dinámicamente desde el JSON. -->
+    <nav class="chips" id="chips" aria-label="Categorías"></nav>
+
+    <!-- 3) Secciones de productos. Se llenan dinámicamente desde el JSON. -->
+    <main class="catalogo" id="catalogo">
+      <!-- Mensaje de carga / error. JS lo reemplaza o lo muestra según el caso. -->
+      <p class="estado" id="estado">Cargando catálogo…</p>
+    </main>
+
+  </div>
+
+  <!-- 4) Burbuja flotante del carrito -->
+  <button class="carrito-burbuja" id="carritoBurbuja" aria-label="Ver pedido" hidden>
+    <!-- ícono de bolsa simple en SVG (sin librerías) -->
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <path fill="currentColor" d="M7 7V6a5 5 0 0 1 10 0v1h3a1 1 0 0 1 1 1l-1.2 12.1A2 2 0 0 1 17.8 22H6.2a2 2 0 0 1-2-1.9L3 8a1 1 0 0 1 1-1h3Zm2 0h6V6a3 3 0 0 0-6 0v1Z"/>
+    </svg>
+    <span class="carrito-burbuja__badge" id="carritoBadge">0</span>
+  </button>
+
+  <!-- Fondo oscuro detrás del panel del carrito -->
+  <div class="overlay" id="overlay" hidden></div>
+
+  <!-- 4b) Panel deslizante (bottom sheet) con el pedido -->
+  <section class="sheet" id="sheet" aria-label="Tu pedido" hidden>
+    <div class="sheet__header">
+      <h2 class="sheet__titulo">Tu pedido</h2>
+      <button class="sheet__cerrar" id="sheetCerrar" aria-label="Cerrar">&times;</button>
+    </div>
+
+    <div class="sheet__items" id="sheetItems"><!-- items dinámicos --></div>
+
+    <div class="sheet__footer">
+      <div class="sheet__total">
+        <span>Total</span>
+        <span id="sheetTotal">$0</span>
+      </div>
+      <button class="btn-whatsapp" id="btnWhatsapp">Enviar pedido por WhatsApp</button>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
