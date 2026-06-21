@@ -49,13 +49,18 @@ Cada producto se ve así:
   "nombre": "Tarta de Nuez",
   "descripcion": "Base de nuez con dulce de leche, crema y frutos rojos",
   "precio": 45000,
-  "imagen": "img/tarta-nuez.jpg"
+  "imagen": "img/tarta-nuez.jpg",
+  "activo": 1
 }
 ```
 
 - **Cambiar un precio:** editá el número en `"precio"`. Va sin puntos ni símbolo `$`
   (ej. `45000`, no `$45.000`). La app le da el formato sola.
 - **Cambiar nombre o descripción:** editá el texto entre comillas. Cuidá de no borrar las comillas.
+- **Mostrar u ocultar un producto:** usá el campo `"activo"`. `1` = se muestra,
+  `0` = no se muestra. Sirve para esconder algo que no estás haciendo en el momento
+  sin tener que borrar el producto. Si una categoría queda sin ningún producto activo,
+  esa categoría entera (con su botón arriba) desaparece sola.
 - **Agregar un producto:** copiá un bloque completo `{ ... }`, pegalo dentro de la categoría
   que corresponda, y cambiale los datos. Acordate de la coma `,` entre un producto y otro.
 - **El `id`** tiene que ser único y sin espacios (ej. `tarta-nuez`). Sirve para identificar el producto.

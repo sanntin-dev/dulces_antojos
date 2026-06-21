@@ -80,6 +80,19 @@ function dibujarCatalogo(categorias) {
 
   // Recorremos cada categoría en el MISMO orden en que viene en el JSON.
   categorias.forEach(function (categoria) {
+    // Nos quedamos solo con los productos ACTIVOS.
+    // Un producto se considera activo si "activo" es 1 (o si no tiene el campo,
+    // así no se rompe nada si te olvidás de ponérselo a alguno).
+    const activos = categoria.productos.filter(function (producto) {
+      return producto.activo !== 0;
+    });
+
+    // Si la categoría no tiene ningún producto activo, no dibujamos nada
+    // (ni el chip ni la sección), para que no quede una categoría vacía.
+    if (activos.length === 0) {
+      return;
+    }
+
     // --- Chip de la categoría ---
     const chip = document.createElement("button");
     chip.className = "chip";
@@ -111,8 +124,8 @@ function dibujarCatalogo(categorias) {
       seccion.appendChild(nota);
     }
 
-    // Productos de la categoría.
-    categoria.productos.forEach(function (producto) {
+    // Productos ACTIVOS de la categoría.
+    activos.forEach(function (producto) {
       // Guardamos el producto en el índice plano para usarlo después.
       productosPorId[producto.id] = producto;
       // Creamos y agregamos la card.

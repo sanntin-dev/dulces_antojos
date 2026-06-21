@@ -1,0 +1,4 @@
+# Archivos que NO se suben al sitio público
+CATALOGO.pdf
+.DS_Store
+.claude
