@@ -33,8 +33,8 @@ lado (Vercel, GitHub Pages, etc.) subiendo los archivos tal cual.
 | `app.js`           | La lógica (carrito, WhatsApp, etc.). Está comentado en español. |
 | `productos.json`   | **El catálogo.** Acá se editan productos, precios y descripciones. |
 | `config.json`      | **La configuración.** Número de WhatsApp y saludo del mensaje. |
-| `img/`             | Las fotos de los productos. |
-| `logo.jpg`         | El logo de la marca. |
+| `img/productos/`   | Las fotos de los productos. |
+| `img/marca/`       | El logo, el favicon y la imagen para compartir. |
 
 ---
 
@@ -50,7 +50,7 @@ Cada producto se ve así:
   "nombre": "Tarta de Nuez",
   "descripcion": "Base de nuez con dulce de leche, crema y frutos rojos",
   "precio": 45000,
-  "imagen": "img/tarta-nuez.jpg",
+  "imagen": "img/productos/tarta-nuez.jpg",
   "activo": 1
 }
 ```
@@ -71,7 +71,7 @@ Cada producto se ve así:
 
 ### Agregar las fotos
 
-Subí la foto a la carpeta `img/` con el mismo nombre que pusiste en el campo `"imagen"`.
+Subí la foto a la carpeta `img/productos/` con el mismo nombre que pusiste en el campo `"imagen"`.
 Si una foto todavía no existe, la app muestra un ícono de torta de relleno (no se rompe).
 
 ---

@@ -5,6 +5,30 @@
   <!-- viewport: clave para que se vea bien en el celu y no permita zoom raro -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dulces Antojos — hecho en casa</title>
+  <meta name="description" content="Pastelería casera. Hacé tu pedido y enviálo por WhatsApp." />
+
+  <!-- Favicon: el iconito de la pestaña del navegador.
+       Usa img/marca/logo_favicon.jpg (por ahora es una copia del logo; podés
+       reemplazar ese archivo por uno más simple/cuadrado cuando quieras). -->
+  <link rel="icon" href="img/marca/logo_favicon.jpg" />
+  <link rel="apple-touch-icon" href="img/marca/logo_favicon.jpg" />
+
+  <!-- Open Graph: la imagen y el texto que se ven al compartir el link
+       (WhatsApp, Instagram, Facebook, etc.). La imagen DEBE ser una URL
+       completa con https, por eso va el dominio entero. Si cambiás de
+       dominio, actualizá estas dos líneas con la URL nueva. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Dulces Antojos — hecho en casa" />
+  <meta property="og:description" content="Pastelería casera. Hacé tu pedido y enviálo por WhatsApp." />
+  <meta property="og:image" content="https://dulcesantojos.vercel.app/img/marca/logo_head.jpg" />
+  <meta property="og:url" content="https://dulcesantojos.vercel.app/" />
+
+  <!-- Lo mismo para Twitter/X (usa sus propias etiquetas) -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Dulces Antojos — hecho en casa" />
+  <meta name="twitter:description" content="Pastelería casera. Hacé tu pedido y enviálo por WhatsApp." />
+  <meta name="twitter:image" content="https://dulcesantojos.vercel.app/img/marca/logo_head.jpg" />
+
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -15,7 +39,7 @@
     <header class="header">
       <h1 class="header__nombre">Dulces Antojos</h1>
       <!-- Logo en el medio, entre el nombre y el lema -->
-      <img class="header__logo" src="logo.jpg" alt="Dulces Antojos — hecho en casa" />
+      <img class="header__logo" src="img/marca/logo.jpg" alt="Dulces Antojos — hecho en casa" />
       <p class="header__lema">— hecho en casa —</p>
 
       <!-- Íconos de redes (los links se completan desde config.json vía app.js) -->
