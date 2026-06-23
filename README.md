@@ -6,7 +6,7 @@ Es una página pensada para el celular: el cliente arma su pedido tocando los pr
 y, al terminar, lo envía por **WhatsApp** con un solo botón. No hay pagos online ni
 cuentas de usuario: el pedido se concreta por WhatsApp.
 
-🔗 **Sitio online:** _(pegá acá tu link de Vercel cuando lo subas, ej. https://dulces-antojos.vercel.app)_
+🔗 **Sitio online:** (https://dulcesantojos.vercel.app/)
 
 ---
 
