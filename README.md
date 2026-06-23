@@ -86,14 +86,15 @@ La config está agrupada por tema. Por ahora hay un solo grupo, `whatsapp`:
 ```json
 {
   "whatsapp": {
-    "numero": "5492974618975",
+    "numero": "5492974611234",
     "mensaje_saludo": "¡Hola! Quiero hacer este pedido:"
   }
 }
 ```
 
-- **`whatsapp.numero`**: el número adonde llegan los pedidos. Formato internacional,
-  sin espacios, `+` ni guiones (54 = Argentina, 9 = celular).
+- **`whatsapp.numero`**: el número adonde llegan los pedidos. El de arriba es
+  solo un ejemplo: reemplazalo por el real. Formato internacional, sin espacios,
+  `+` ni guiones (54 = Argentina, 9 = celular).
 - **`whatsapp.mensaje_saludo`**: la primera línea del mensaje que se arma para WhatsApp.
 
 > 💡 Igual que con `productos.json`, cuidá de no borrar comillas ni las comas.
@@ -122,6 +123,25 @@ Y abrís en el navegador: **http://localhost:8000**
 4. **Deploy.** Listo, te da la URL pública.
 
 Cada vez que actualices el repo en GitHub, Vercel vuelve a publicar solo.
+
+### 🛡️ Protección contra JSON roto
+
+Antes de publicar, Vercel corre el script `validar-json.js` (configurado en
+`vercel.json`). Ese script revisa que `config.json` y `productos.json` estén
+bien escritos.
+
+- Si están **bien** → se publica la nueva versión.
+- Si alguno está **roto** (por ejemplo, se borró una coma sin querer) → el
+  deploy se **cancela** y el sitio sigue mostrando la **última versión que
+  funcionaba**. Nadie ve la app rota.
+
+Quien haya pusheado verá el error marcado en Vercel (o en GitHub) y podrá
+corregirlo. También podés revisar vos antes de pushear, desde la carpeta del
+proyecto:
+
+```bash
+node validar-json.js
+```
 
 ---
 

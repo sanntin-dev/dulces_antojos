@@ -1,0 +1,5 @@
+{
+  "buildCommand": "node validar-json.js",
+  "outputDirectory": ".",
+  "framework": null
+}
