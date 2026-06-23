@@ -82,6 +82,28 @@ body {
   mix-blend-mode: multiply; /* funde el fondo blanco del logo con la crema */
 }
 
+/* Íconos de redes (WhatsApp / Instagram), debajo del lema */
+.redes {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.redes__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--crema);
+  border: 1px solid var(--borde);
+  color: var(--lavanda);
+  text-decoration: none;
+}
+.redes__link:active { opacity: 0.7; }
+
 /* ---------- 2) Chips de categorías (sticky + scrolleable) ---------- */
 .chips {
   position: sticky;
@@ -243,6 +265,20 @@ body {
   font-weight: 700;
   font-size: 16px;
 }
+
+/* ---------- Footer ---------- */
+.footer {
+  text-align: center;
+  font-size: 13px;
+  color: var(--marron-claro);
+  padding: 24px 16px 28px;
+  border-top: 1px solid var(--borde);
+}
+.footer a {
+  color: var(--lavanda);
+  text-decoration: none;
+}
+.footer a:hover { text-decoration: underline; }
 
 /* ---------- 4) Barra fija de pedido (abajo, ancho completo) ---------- */
 .barra-pedido {

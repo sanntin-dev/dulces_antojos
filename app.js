@@ -61,6 +61,9 @@ async function iniciar() {
       console.warn("No se pudo leer config.json, uso valores por defecto.", e);
     }
 
+    // Completamos los íconos de redes (WhatsApp / Instagram) con lo del config.
+    configurarRedes();
+
     // Leemos el archivo de productos.
     const respuesta = await fetch("productos.json");
 
@@ -85,6 +88,29 @@ async function iniciar() {
     // Cualquier problema (sin internet, JSON roto, archivo vacío) cae acá.
     console.error(error);
     estado.textContent = "No se pudo cargar el catálogo.";
+  }
+}
+
+// Completa los íconos de redes con los datos del config.
+// - WhatsApp: usa el mismo número del pedido (config.whatsapp.numero).
+// - Instagram: usa el link de config.redes.instagram.
+// Si alguno no tiene dato cargado, escondemos ese ícono.
+function configurarRedes() {
+  const whatsapp = document.getElementById("redWhatsapp");
+  const instagram = document.getElementById("redInstagram");
+
+  // WhatsApp: arma el link wa.me con el número configurado.
+  if (config.whatsapp && config.whatsapp.numero) {
+    whatsapp.href = "https://wa.me/" + config.whatsapp.numero;
+  } else {
+    whatsapp.hidden = true; // sin número, no mostramos el ícono
+  }
+
+  // Instagram: usa el link tal cual del config.
+  if (config.redes && config.redes.instagram) {
+    instagram.href = config.redes.instagram;
+  } else {
+    instagram.hidden = true; // sin link, no mostramos el ícono
   }
 }
 

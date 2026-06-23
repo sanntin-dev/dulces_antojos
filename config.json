@@ -1,6 +1,9 @@
 {
   "whatsapp": {
-    "numero": "5492974618975",
+    "numero": "5492970000",
     "mensaje_saludo": "¡Hola! Quiero hacer este pedido:"
+  },
+  "redes": {
+    "instagram": "https://instagram.com/"
   }
 }
