@@ -2,7 +2,7 @@
    Dulces Antojos — lógica de la app (JavaScript vanilla)
 
    Cómo está organizado este archivo:
-   1. Configuración (número de WhatsApp)
+   1. Configuración (se lee de config.json: número de WhatsApp, saludo)
    2. Estado en memoria (el carrito)
    3. Arranque: leer productos.json y dibujar todo
    4. Dibujar chips y secciones de productos
@@ -17,9 +17,16 @@
 
 /* ---------- 1) CONFIGURACIÓN ---------- */
 
-// Número de WhatsApp en formato internacional, SIN espacios, +, ni guiones.
-// Ejemplo: 5491122334455  (54 = Argentina, 9 = celular, etc.)
-const WHATSAPP_NUMBER = "5492974618975"; // TODO: reemplazar por el número real
+// La configuración vive en el archivo "config.json", así la podés editar sin
+// tocar este código. Está agrupada por tema (por ahora solo "whatsapp", pero
+// si más adelante sumás otras cosas, agregás otro grupo). Acá solo dejamos
+// valores por defecto, por si el config.json no se pudiera leer.
+let config = {
+  whatsapp: {
+    numero: "",
+    mensaje_saludo: "¡Hola! Quiero hacer este pedido:",
+  },
+};
 
 /* ---------- 2) ESTADO EN MEMORIA ---------- */
 
@@ -42,6 +49,18 @@ async function iniciar() {
   const estado = document.getElementById("estado");
 
   try {
+    // Primero leemos la configuración (número de WhatsApp, etc.).
+    // Si falla, no rompemos: seguimos con los valores por defecto de arriba.
+    try {
+      const respConfig = await fetch("config.json");
+      if (respConfig.ok) {
+        // Mezclamos lo que venga del archivo sobre los valores por defecto.
+        config = Object.assign(config, await respConfig.json());
+      }
+    } catch (e) {
+      console.warn("No se pudo leer config.json, uso valores por defecto.", e);
+    }
+
     // Leemos el archivo de productos.
     const respuesta = await fetch("productos.json");
 
@@ -406,7 +425,7 @@ function enviarPorWhatsapp() {
 
   // Armamos el texto del mensaje línea por línea.
   const lineas = [];
-  lineas.push("¡Hola! Quiero hacer este pedido:");
+  lineas.push(config.whatsapp.mensaje_saludo); // saludo configurable (config.json)
   lineas.push(""); // línea en blanco
 
   for (const id in carrito) {
@@ -424,7 +443,7 @@ function enviarPorWhatsapp() {
 
   // Unimos con saltos de línea y codificamos para que viaje bien en la URL.
   const mensaje = encodeURIComponent(lineas.join("\n"));
-  const url = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + mensaje;
+  const url = "https://wa.me/" + config.whatsapp.numero + "?text=" + mensaje;
 
   // Abrimos WhatsApp (app o web) en otra pestaña.
   window.open(url, "_blank");

@@ -437,3 +437,60 @@ body {
   opacity: 0.5;
   cursor: default;
 }
+
+/* ============================================================
+   RESPONSIVE — Tablet y computadora (pantallas anchas)
+   En el celular se ve como hasta acá (una sola columna angosta).
+   De 768px para arriba ensanchamos el marco y mostramos los
+   productos en DOS columnas para aprovechar el espacio.
+   Si querés que en pantallas grandes sea aún más ancho o más
+   angosto, cambiá el "max-width: 900px" de acá abajo.
+   ============================================================ */
+@media (min-width: 768px) {
+  /* El marco central crece para usar más pantalla */
+  .app {
+    max-width: 900px;
+  }
+
+  /* La barra de pedido y el panel del pedido acompañan el mismo ancho */
+  .barra-pedido,
+  .sheet {
+    max-width: 900px;
+  }
+
+  /* Los chips se centran (ya entran todos, no hace falta deslizar) */
+  .chips {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Cada categoría pasa a ser una grilla de 2 columnas.
+     El título y la nota ocupan el ancho completo, arriba de las columnas. */
+  .seccion {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 24px; /* 16px entre filas, 24px entre columnas */
+    align-items: start;
+  }
+  .seccion__titulo,
+  .seccion__nota {
+    grid-column: 1 / -1; /* ocupar las dos columnas */
+  }
+
+  /* Las cards dejan de ser "filas con línea abajo" y se ven como
+     tarjetas con borde redondeado, que queda mejor en grilla. */
+  .card {
+    border: 1px solid var(--borde);
+    border-radius: var(--radio);
+    padding: 16px;
+    align-items: flex-start;
+  }
+
+  /* Foto un poco más grande, ya que hay más lugar */
+  .card__foto,
+  .card__placeholder {
+    flex-basis: 104px;
+    width: 104px;
+    height: 104px;
+  }
+}

@@ -32,6 +32,7 @@ lado (Vercel, GitHub Pages, etc.) subiendo los archivos tal cual.
 | `styles.css`       | Los colores, tipografías y diseño. |
 | `app.js`           | La lógica (carrito, WhatsApp, etc.). Está comentado en español. |
 | `productos.json`   | **El catálogo.** Acá se editan productos, precios y descripciones. |
+| `config.json`      | **La configuración.** Número de WhatsApp y saludo del mensaje. |
 | `img/`             | Las fotos de los productos. |
 | `logo.jpg`         | El logo de la marca. |
 
@@ -75,15 +76,28 @@ Si una foto todavía no existe, la app muestra un ícono de torta de relleno (no
 
 ---
 
-## 📱 El número de WhatsApp
+## 📱 Configuración (`config.json`)
 
-Está al principio de **`app.js`**, bien visible:
+Los datos que cambian cada tanto viven en **`config.json`**, así no tenés que
+tocar el código:
 
-```js
-const WHATSAPP_NUMBER = "5492974618975";
+La config está agrupada por tema. Por ahora hay un solo grupo, `whatsapp`:
+
+```json
+{
+  "whatsapp": {
+    "numero": "5492974618975",
+    "mensaje_saludo": "¡Hola! Quiero hacer este pedido:"
+  }
+}
 ```
 
-Formato internacional, sin espacios, `+` ni guiones (54 = Argentina, 9 = celular).
+- **`whatsapp.numero`**: el número adonde llegan los pedidos. Formato internacional,
+  sin espacios, `+` ni guiones (54 = Argentina, 9 = celular).
+- **`whatsapp.mensaje_saludo`**: la primera línea del mensaje que se arma para WhatsApp.
+
+> 💡 Igual que con `productos.json`, cuidá de no borrar comillas ni las comas.
+> Si más adelante se agregan más opciones, van como grupos nuevos al lado de `whatsapp`.
 
 ---
 
