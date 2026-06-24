@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node validar-json.js",
+  "buildCommand": "node assets/validar-json.js",
   "outputDirectory": ".",
   "framework": null
 }

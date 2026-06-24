@@ -52,7 +52,7 @@ async function iniciar() {
     // Primero leemos la configuración (número de WhatsApp, etc.).
     // Si falla, no rompemos: seguimos con los valores por defecto de arriba.
     try {
-      const respConfig = await fetch("config.json");
+      const respConfig = await fetch("datos/config.json");
       if (respConfig.ok) {
         // Mezclamos lo que venga del archivo sobre los valores por defecto.
         config = Object.assign(config, await respConfig.json());
@@ -65,7 +65,7 @@ async function iniciar() {
     configurarRedes();
 
     // Leemos el archivo de productos.
-    const respuesta = await fetch("productos.json");
+    const respuesta = await fetch("datos/productos.json");
 
     // Si el archivo no se encontró o el servidor respondió mal, avisamos.
     if (!respuesta.ok) {

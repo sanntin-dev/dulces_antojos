@@ -10,7 +10,7 @@
      edita un JSON y se le escapa una coma, el sitio NO se rompe.
 
    También lo podés correr vos en tu compu antes de pushear, con:
-       node validar-json.js
+       node assets/validar-json.js
    ============================================================ */
 
 const fs = require("fs");
@@ -45,7 +45,7 @@ console.log("Validando archivos JSON…\n");
 
 /* ---------- config.json ---------- */
 console.log("config.json:");
-const config = leerJSON("config.json");
+const config = leerJSON("datos/config.json");
 if (config) {
   if (!config.whatsapp || !config.whatsapp.numero) {
     error('config.json: falta "whatsapp" con un "numero" adentro.');
@@ -56,7 +56,7 @@ if (config) {
 
 /* ---------- productos.json ---------- */
 console.log("productos.json:");
-const productos = leerJSON("productos.json");
+const productos = leerJSON("datos/productos.json");
 if (productos) {
   if (!Array.isArray(productos.categorias) || productos.categorias.length === 0) {
     error('productos.json: tiene que tener una lista "categorias" con al menos una categoría.');

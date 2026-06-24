@@ -26,15 +26,19 @@ lado (Vercel, GitHub Pages, etc.) subiendo los archivos tal cual.
 
 ### Archivos del proyecto
 
-| Archivo            | Para qué sirve |
-|--------------------|----------------|
-| `index.html`       | La estructura de la página. |
-| `styles.css`       | Los colores, tipografías y diseño. |
-| `app.js`           | La lógica (carrito, WhatsApp, etc.). Está comentado en español. |
-| `productos.json`   | **El catálogo.** Acá se editan productos, precios y descripciones. |
-| `config.json`      | **La configuración.** Número de WhatsApp y saludo del mensaje. |
-| `img/productos/`   | Las fotos de los productos. |
-| `img/marca/`       | El logo, el favicon y la imagen para compartir. |
+> 📝 **Si solo querés cambiar productos o el número de WhatsApp, andá directo a
+> la carpeta `datos/`.** Todo lo demás es código que no hace falta tocar.
+
+| Archivo / Carpeta        | Para qué sirve |
+|--------------------------|----------------|
+| `datos/productos.json`   | **El catálogo.** Acá se editan productos, precios y descripciones. |
+| `datos/config.json`      | **La configuración.** Número de WhatsApp y saludo del mensaje. |
+| `img/productos/`         | Las fotos de los productos. |
+| `img/marca/`             | El logo, el favicon y la imagen para compartir. |
+| `index.html`             | La estructura de la página. |
+| `assets/styles.css`      | Los colores, tipografías y diseño. |
+| `assets/app.js`          | La lógica (carrito, WhatsApp, etc.). Está comentado en español. |
+| `assets/validar-json.js` | Revisa que los JSON estén bien antes de publicar. |
 
 ---
 
@@ -140,7 +144,7 @@ corregirlo. También podés revisar vos antes de pushear, desde la carpeta del
 proyecto:
 
 ```bash
-node validar-json.js
+node assets/validar-json.js
 ```
 
 ---
