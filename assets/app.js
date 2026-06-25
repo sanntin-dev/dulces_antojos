@@ -444,13 +444,16 @@ function resumenBox(catId) {
   const box = regla.unidadesPorBox;
   let suma = 0;
   let subtotal = 0;
-  const partes = []; // ej: ["10 Rogelitos", "5 Brownie"]
+  // Detalle por sabor: [{ nombre: "Rogelitos", cantidad: 10, subtotal: 9500 }, ...]
+  const items = [];
   for (const id in carrito) {
     if (productosPorId[id].categoria === catId) {
       const p = productosPorId[id];
-      suma += carrito[id];
-      subtotal += p.precio * carrito[id];
-      partes.push(carrito[id] + " " + p.nombre);
+      const cantidad = carrito[id];
+      const sub = p.precio * cantidad;
+      suma += cantidad;
+      subtotal += sub;
+      items.push({ nombre: p.nombre, cantidad: cantidad, subtotal: sub });
     }
   }
   return {
@@ -458,7 +461,7 @@ function resumenBox(catId) {
     box: box,
     suma: suma,
     subtotal: subtotal,
-    partes: partes,
+    items: items,
     boxes: Math.floor(suma / box), // boxes completos
     resto: suma % box, // lo que va en el box "en armado" (0 = cierra justo)
     completo: suma > 0 && suma % box === 0,
@@ -732,9 +735,15 @@ function crearLineaBox(catId, r) {
   }
   texto.appendChild(nombre);
 
+  // Detalle por sabor, una línea por cada uno con su subtotal.
   const detalle = document.createElement("div");
   detalle.className = "item__detalle";
-  detalle.textContent = r.partes.join(" · ");
+  r.items.forEach(function (it) {
+    const fila = document.createElement("div");
+    fila.textContent =
+      it.cantidad + "x " + it.nombre + " — " + formatearPrecio(it.subtotal);
+    detalle.appendChild(fila);
+  });
   texto.appendChild(detalle);
 
   item.appendChild(texto);
@@ -782,17 +791,24 @@ function enviarPorWhatsapp() {
     );
   }
 
-  // Categorías de box (ej. bocaditos): una línea con el surtido del box.
+  // Categorías de box (ej. bocaditos): un encabezado con el total del box y
+  // debajo el detalle por sabor con su subtotal. Ejemplo:
+  //   1 box de bocaditos (20u) - $21.000
+  //     • 10x Rogelitos - $9.500
+  //     • 5x Brownie - $4.000
   for (const catId in reglasPorCategoria) {
     if (!esCategoriaBox(catId)) continue;
     const r = resumenBox(catId);
     if (r.suma === 0) continue;
-    // Ejemplo: "1 box de bocaditos (20u): 10 Rogelitos, 5 Brownie - $21.000"
     lineas.push(
       r.boxes + (r.boxes === 1 ? " box de " : " boxes de ") +
-      r.nombre.toLowerCase() + " (" + r.suma + "u): " +
-      r.partes.join(", ") + " - " + formatearPrecio(r.subtotal),
+      r.nombre.toLowerCase() + " (" + r.suma + "u) - " + formatearPrecio(r.subtotal),
     );
+    r.items.forEach(function (it) {
+      lineas.push(
+        "  • " + it.cantidad + "x " + it.nombre + " - " + formatearPrecio(it.subtotal),
+      );
+    });
   }
 
   lineas.push(""); // línea en blanco

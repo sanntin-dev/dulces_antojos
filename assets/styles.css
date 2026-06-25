@@ -433,6 +433,8 @@ body.sin-scroll {
 .item__detalle {
   font-size: 13px;
   color: var(--marron-claro);
+  line-height: 1.6; /* aire entre las líneas del detalle por sabor del box */
+  margin-top: 2px;
 }
 
 .item__linea {
