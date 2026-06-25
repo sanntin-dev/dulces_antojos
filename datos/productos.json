@@ -49,7 +49,9 @@
     {
       "id": "bocaditos",
       "nombre": "Bocaditos",
-      "nota": "Box mínimo 20 unidades a elección",
+      "nota": "Se arman en boxes de 20 unidades a elección",
+      "unidadesPorBox": 20,
+      "cantidadPorClick": 5,
       "productos": [
         {
           "id": "rogelitos",

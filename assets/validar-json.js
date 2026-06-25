@@ -67,6 +67,15 @@ if (productos) {
         error('La categoría "' + (cat.id || cat.nombre || "?") + '" no tiene lista de productos.');
         return;
       }
+      // Si la categoría define un tamaño de box o una cantidad por click, tienen
+      // que ser números positivos (ej. bocaditos: "unidadesPorBox": 20, "cantidadPorClick": 5).
+      const nombreCat = cat.nombre || cat.id || "?";
+      if ("unidadesPorBox" in cat && !(typeof cat.unidadesPorBox === "number" && cat.unidadesPorBox > 0)) {
+        error('La categoría "' + nombreCat + '" tiene un "unidadesPorBox" que no es un número positivo.');
+      }
+      if ("cantidadPorClick" in cat && !(typeof cat.cantidadPorClick === "number" && cat.cantidadPorClick > 0)) {
+        error('La categoría "' + nombreCat + '" tiene un "cantidadPorClick" que no es un número positivo.');
+      }
       cat.productos.forEach(function (p) {
         if (!p.nombre) {
           error('Un producto de "' + (cat.nombre || cat.id) + '" no tiene "nombre".');

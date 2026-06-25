@@ -40,6 +40,16 @@ let carrito = {};
 // Se llena al cargar el JSON.
 let productosPorId = {};
 
+// Reglas por categoría que se leen del JSON (por ahora "bocaditos"):
+//   - unidadesPorBox: tamaño del box. Si está, los productos de esa categoría se
+//     venden en boxes de ese tamaño (ej. 20) y el total tiene que cerrar en un
+//     múltiplo (20, 40, 60…) para poder pedir.
+//   - cantidadPorClick: de a cuánto suma/resta cada botón + / – .
+// Ejemplo: { "bocaditos": { nombre: "Bocaditos", unidadesPorBox: 20, cantidadPorClick: 5 } }
+// Se llena al cargar el catálogo. Una categoría sin estos campos usa los
+// valores por defecto (sin box y de a uno).
+let reglasPorCategoria = {};
+
 /* ---------- 3) ARRANQUE ---------- */
 
 // Cuando termina de cargar la página, pedimos el catálogo y lo dibujamos.
@@ -125,6 +135,15 @@ function dibujarCatalogo(categorias) {
 
   // Recorremos cada categoría en el MISMO orden en que viene en el JSON.
   categorias.forEach(function (categoria) {
+    // Guardamos las reglas de esta categoría (tamaño de box y cantidad por click).
+    // Si el JSON no las trae, quedan en sus valores por defecto: sin box (0)
+    // y de a uno (1).
+    reglasPorCategoria[categoria.id] = {
+      nombre: categoria.nombre,
+      unidadesPorBox: categoria.unidadesPorBox || 0,
+      cantidadPorClick: categoria.cantidadPorClick || 1,
+    };
+
     // Nos quedamos solo con los productos ACTIVOS.
     // Un producto se considera activo si "activo" es 1 (o si no tiene el campo,
     // así no se rompe nada si te olvidás de ponérselo a alguno).
@@ -161,7 +180,7 @@ function dibujarCatalogo(categorias) {
     titulo.textContent = categoria.nombre;
     seccion.appendChild(titulo);
 
-    // Nota de la categoría (si tiene), por ejemplo "Box mínimo 20 unidades".
+    // Nota de la categoría (si tiene), por ejemplo "Se arman en boxes de 20".
     if (categoria.nota) {
       const nota = document.createElement("p");
       nota.className = "seccion__nota";
@@ -169,9 +188,17 @@ function dibujarCatalogo(categorias) {
       seccion.appendChild(nota);
     }
 
+    // Si la categoría se vende en boxes (ej. bocaditos), agregamos arriba una
+    // barrita de progreso que muestra cuánto falta para completar el box.
+    if (reglasPorCategoria[categoria.id].unidadesPorBox) {
+      seccion.appendChild(crearProgresoBox(categoria.id));
+    }
+
     // Productos ACTIVOS de la categoría.
     activos.forEach(function (producto) {
-      // Guardamos el producto en el índice plano para usarlo después.
+      // Estampamos a qué categoría pertenece (para el box y la cantidad por
+      // click), y lo guardamos en el índice plano para usarlo después.
+      producto.categoria = categoria.id;
       productosPorId[producto.id] = producto;
       // Creamos y agregamos la card.
       seccion.appendChild(crearCard(producto));
@@ -182,6 +209,26 @@ function dibujarCatalogo(categorias) {
 
   // Una vez que existen las secciones, activamos el scrollspy.
   activarScrollspy();
+
+  // Estado inicial de las barras de progreso de boxes (arrancan en 0).
+  refrescarProgresos();
+
+  // Medimos la altura de los chips para que la barra del box se pegue justo
+  // debajo (y la recalculamos si cambia el tamaño de la ventana).
+  ajustarAlturaChips();
+  window.addEventListener("resize", ajustarAlturaChips);
+}
+
+// Guarda la altura real de la barra de chips en la variable CSS --altura-chips.
+// La usa el "top" de la barra sticky del box (styles.css), así se pega justo
+// debajo de los chips sin depender de un número fijo.
+function ajustarAlturaChips() {
+  const chips = document.getElementById("chips");
+  if (!chips) return;
+  document.documentElement.style.setProperty(
+    "--altura-chips",
+    chips.offsetHeight + "px",
+  );
 }
 
 // Crea la card horizontal de un producto.
@@ -200,6 +247,10 @@ function crearCard(producto) {
   img.onerror = function () {
     img.replaceWith(crearPlaceholder());
   };
+  // Al tocar la foto, se abre en grande (visor). El placeholder no abre nada.
+  img.addEventListener("click", function () {
+    abrirVisor(producto.imagen, producto.nombre);
+  });
   card.appendChild(img);
 
   // --- Info a la derecha ---
@@ -285,21 +336,31 @@ function crearControlCantidad(idProducto) {
 
 /* ---------- 5) CARRITO ---------- */
 
+// De a cuánto suma/resta cada click para un producto, según su categoría.
+// Por defecto 1; los bocaditos, por ejemplo, van de a 5 (config en productos.json).
+function cantidadPorClickDe(idProducto) {
+  const producto = productosPorId[idProducto];
+  const regla = producto && reglasPorCategoria[producto.categoria];
+  return (regla && regla.cantidadPorClick) || 1;
+}
+
 function sumar(idProducto) {
-  carrito[idProducto] = (carrito[idProducto] || 0) + 1;
+  carrito[idProducto] = (carrito[idProducto] || 0) + cantidadPorClickDe(idProducto);
   refrescarControl(idProducto);
   refrescarBurbuja();
+  refrescarProgresos();
 }
 
 function restar(idProducto) {
   if (!carrito[idProducto]) return;
-  carrito[idProducto] -= 1;
-  // Si llega a 0, lo sacamos del carrito para mantenerlo limpio.
+  carrito[idProducto] -= cantidadPorClickDe(idProducto);
+  // Si llega a 0 (o menos), lo sacamos del carrito para mantenerlo limpio.
   if (carrito[idProducto] <= 0) {
     delete carrito[idProducto];
   }
   refrescarControl(idProducto);
   refrescarBurbuja();
+  refrescarProgresos();
   // Si el panel del pedido está abierto, lo redibujamos también.
   if (!document.getElementById("sheet").hidden) {
     dibujarPedido();
@@ -311,6 +372,21 @@ function quitar(idProducto) {
   delete carrito[idProducto];
   refrescarControl(idProducto);
   refrescarBurbuja();
+  refrescarProgresos();
+  dibujarPedido();
+}
+
+// Quita TODOS los productos de una categoría (ej. vaciar los bocaditos desde la
+// línea de box del pedido).
+function quitarCategoria(catId) {
+  for (const id in carrito) {
+    if (productosPorId[id].categoria === catId) {
+      delete carrito[id];
+      refrescarControl(id);
+    }
+  }
+  refrescarBurbuja();
+  refrescarProgresos();
   dibujarPedido();
 }
 
@@ -355,6 +431,129 @@ function calcularTotal() {
   return total;
 }
 
+// ¿Esta categoría se vende en boxes? (tiene "unidadesPorBox" en el JSON)
+function esCategoriaBox(catId) {
+  const regla = reglasPorCategoria[catId];
+  return !!(regla && regla.unidadesPorBox);
+}
+
+// Resume lo que hay en el carrito de una categoría de boxes: cuántas unidades,
+// cuánto sale, el detalle del surtido, cuántos boxes completos y si cierra justo.
+function resumenBox(catId) {
+  const regla = reglasPorCategoria[catId];
+  const box = regla.unidadesPorBox;
+  let suma = 0;
+  let subtotal = 0;
+  const partes = []; // ej: ["10 Rogelitos", "5 Brownie"]
+  for (const id in carrito) {
+    if (productosPorId[id].categoria === catId) {
+      const p = productosPorId[id];
+      suma += carrito[id];
+      subtotal += p.precio * carrito[id];
+      partes.push(carrito[id] + " " + p.nombre);
+    }
+  }
+  return {
+    nombre: regla.nombre,
+    box: box,
+    suma: suma,
+    subtotal: subtotal,
+    partes: partes,
+    boxes: Math.floor(suma / box), // boxes completos
+    resto: suma % box, // lo que va en el box "en armado" (0 = cierra justo)
+    completo: suma > 0 && suma % box === 0,
+  };
+}
+
+// Revisa las categorías que se venden en boxes (ej. bocaditos = 20) y devuelve
+// las que están "a medias": tienen unidades pero no cierran en un múltiplo del
+// box. Si una categoría tiene 0 unidades, no aplica (no es obligatorio pedirla).
+// Devuelve una lista vacía si está todo OK, o algo como:
+//   [{ nombre: "Bocaditos", faltan: 5, box: 20 }]
+function validarBoxes() {
+  const faltantes = [];
+  for (const catId in reglasPorCategoria) {
+    if (!esCategoriaBox(catId)) continue;
+    const r = resumenBox(catId);
+    if (r.suma > 0 && r.resto !== 0) {
+      faltantes.push({
+        nombre: r.nombre,
+        faltan: r.box - r.resto,
+        completados: r.boxes, // boxes ya cerrados
+        boxNumero: r.boxes + 1, // el box que está en armado
+      });
+    }
+  }
+  return faltantes;
+}
+
+/* ---------- PROGRESO DEL BOX (barrita arriba de la sección) ---------- */
+
+// Crea la barrita de progreso de una categoría de boxes. Se actualiza después
+// con refrescarProgresos() a medida que el cliente suma/resta.
+function crearProgresoBox(catId) {
+  const cont = document.createElement("div");
+  cont.className = "box-progreso";
+  cont.id = "progreso-" + catId;
+  cont.innerHTML =
+    '<div class="box-progreso__fila">' +
+    '  <span class="box-progreso__label"></span>' +
+    '  <span class="box-progreso__cont"></span>' +
+    "</div>" +
+    '<div class="box-progreso__barra"><div class="box-progreso__relleno"></div></div>' +
+    '<p class="box-progreso__nota"></p>';
+  return cont;
+}
+
+// Actualiza TODAS las barritas de progreso de boxes según lo que haya en el carrito.
+function refrescarProgresos() {
+  for (const catId in reglasPorCategoria) {
+    if (!esCategoriaBox(catId)) continue;
+    const cont = document.getElementById("progreso-" + catId);
+    if (!cont) continue;
+
+    const r = resumenBox(catId);
+    const label = cont.querySelector(".box-progreso__label");
+    const contador = cont.querySelector(".box-progreso__cont");
+    const relleno = cont.querySelector(".box-progreso__relleno");
+    const nota = cont.querySelector(".box-progreso__nota");
+
+    if (r.suma === 0) {
+      // Sin nada elegido todavía: no mostramos la barra (aparece al sumar el 1°).
+      cont.hidden = true;
+      cont.classList.remove("box-progreso--completo");
+      continue;
+    }
+    cont.hidden = false;
+
+    if (r.completo) {
+      // Cierra justo: todos los boxes están completos.
+      label.textContent = "Box " + r.boxes;
+      contador.textContent = r.box + " / " + r.box;
+      relleno.style.width = "100%";
+      nota.textContent =
+        "✓ " + r.boxes + (r.boxes === 1 ? " box completo" : " boxes completos") +
+        " (" + r.suma + "u)";
+      cont.classList.add("box-progreso--completo");
+    } else {
+      // Hay un box "en armado": mostramos cuánto le falta.
+      const enArmado = r.boxes + 1;
+      label.textContent = "Box " + enArmado;
+      contador.textContent = r.resto + " / " + r.box;
+      relleno.style.width = Math.round((r.resto / r.box) * 100) + "%";
+      // Si ya cerró boxes, se lo reconocemos antes de pedirle el siguiente.
+      const prefijo =
+        r.boxes > 0
+          ? (r.boxes === 1 ? "1 box listo · " : r.boxes + " boxes listos · ")
+          : "";
+      nota.textContent =
+        prefijo + "te faltan " + (r.box - r.resto) +
+        " para completar el box " + enArmado;
+      cont.classList.remove("box-progreso--completo");
+    }
+  }
+}
+
 /* ---------- 6) PANEL DEL PEDIDO ---------- */
 
 function conectarPanel() {
@@ -366,17 +565,52 @@ function conectarPanel() {
   document
     .getElementById("btnWhatsapp")
     .addEventListener("click", enviarPorWhatsapp);
+
+  // Visor de fotos: cerrar tocando el fondo, la X o la tecla Escape.
+  document.getElementById("visor").addEventListener("click", cerrarVisor);
+  document
+    .getElementById("visorCerrar")
+    .addEventListener("click", cerrarVisor);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") cerrarVisor();
+  });
+}
+
+/* ---------- VISOR DE FOTOS (lightbox) ---------- */
+
+// Abre la imagen en grande sobre un fondo oscuro.
+function abrirVisor(src, alt) {
+  const visor = document.getElementById("visor");
+  const img = document.getElementById("visorImg");
+  img.src = src;
+  img.alt = alt || "";
+  visor.hidden = false;
+  bloquearScrollFondo(true);
+}
+
+// Cierra el visor.
+function cerrarVisor() {
+  document.getElementById("visor").hidden = true;
+  bloquearScrollFondo(false);
 }
 
 function abrirPanel() {
   dibujarPedido();
   document.getElementById("overlay").hidden = false;
   document.getElementById("sheet").hidden = false;
+  bloquearScrollFondo(true);
 }
 
 function cerrarPanel() {
   document.getElementById("overlay").hidden = true;
   document.getElementById("sheet").hidden = true;
+  bloquearScrollFondo(false);
+}
+
+// Congela (o libera) el scroll de la página de atrás mientras hay un panel
+// abierto, así el dedo no "arrastra" el catálogo por detrás del pedido/visor.
+function bloquearScrollFondo(bloquear) {
+  document.body.classList.toggle("sin-scroll", bloquear);
 }
 
 // Dibuja la lista de items dentro del panel + el total.
@@ -401,8 +635,12 @@ function dibujarPedido() {
 
   btn.disabled = false;
 
+  // Productos sueltos (los que NO se venden en box): una línea por producto.
+  // Los de categorías de box se juntan más abajo en una sola línea por categoría.
   ids.forEach(function (id) {
     const producto = productosPorId[id];
+    if (esCategoriaBox(producto.categoria)) return; // se agrupan aparte
+
     const cantidad = carrito[id];
     const subtotal = producto.precio * cantidad;
 
@@ -441,7 +679,81 @@ function dibujarPedido() {
     cont.appendChild(item);
   });
 
+  // Categorías de box (ej. bocaditos): una sola línea con el surtido y el total.
+  for (const catId in reglasPorCategoria) {
+    if (!esCategoriaBox(catId)) continue;
+    const r = resumenBox(catId);
+    if (r.suma === 0) continue;
+    cont.appendChild(crearLineaBox(catId, r));
+  }
+
   totalEl.textContent = formatearPrecio(calcularTotal());
+
+  // Chequeo de boxes (ej. bocaditos): si el total no cierra en un múltiplo del
+  // box, mostramos un cartel y deshabilitamos el botón hasta que se complete.
+  const faltantes = validarBoxes();
+  if (faltantes.length > 0) {
+    faltantes.forEach(function (f) {
+      const aviso = document.createElement("p");
+      aviso.className = "sheet__aviso";
+      // Si ya cerró boxes, se lo reconocemos antes de pedirle que complete el actual.
+      const prefijo =
+        f.completados > 0
+          ? "Ya tenés " + f.completados +
+            (f.completados === 1 ? " box listo. " : " boxes listos. ")
+          : "";
+      aviso.textContent =
+        prefijo + "Te faltan " + f.faltan + " para completar el box " +
+        f.boxNumero + " de " + f.nombre.toLowerCase() + ".";
+      cont.appendChild(aviso);
+    });
+    btn.disabled = true;
+  }
+}
+
+// Crea la línea agrupada del pedido para una categoría de boxes.
+// Ej: "1 box de bocaditos (20u)" + "10 Rogelitos · 5 Brownie · 5 Cheesecake".
+function crearLineaBox(catId, r) {
+  const item = document.createElement("div");
+  item.className = "item";
+
+  const texto = document.createElement("div");
+  texto.className = "item__texto";
+
+  const nombre = document.createElement("div");
+  nombre.className = "item__nombre";
+  if (r.completo) {
+    nombre.textContent =
+      r.boxes + (r.boxes === 1 ? " box de " : " boxes de ") +
+      r.nombre.toLowerCase() + " (" + r.suma + "u)";
+  } else {
+    // Aún no cierra el box: lo mostramos igual, el cartel de abajo avisa.
+    nombre.textContent = r.nombre + " (" + r.suma + "u, falta completar)";
+  }
+  texto.appendChild(nombre);
+
+  const detalle = document.createElement("div");
+  detalle.className = "item__detalle";
+  detalle.textContent = r.partes.join(" · ");
+  texto.appendChild(detalle);
+
+  item.appendChild(texto);
+
+  const linea = document.createElement("span");
+  linea.className = "item__linea";
+  linea.textContent = formatearPrecio(r.subtotal);
+  item.appendChild(linea);
+
+  const quitarBtn = document.createElement("button");
+  quitarBtn.className = "item__quitar";
+  quitarBtn.textContent = "×";
+  quitarBtn.setAttribute("aria-label", "Quitar " + r.nombre.toLowerCase());
+  quitarBtn.addEventListener("click", function () {
+    quitarCategoria(catId);
+  });
+  item.appendChild(quitarBtn);
+
+  return item;
 }
 
 /* ---------- 7) ENVIAR POR WHATSAPP ---------- */
@@ -449,18 +761,37 @@ function dibujarPedido() {
 function enviarPorWhatsapp() {
   if (contarItems() === 0) return;
 
+  // Segunda barrera: si algún box no cierra (ej. 15 bocaditos), no armamos ni
+  // enviamos el mensaje. El panel ya avisa cuánto falta.
+  if (validarBoxes().length > 0) return;
+
   // Armamos el texto del mensaje línea por línea.
   const lineas = [];
   lineas.push(config.whatsapp.mensaje_saludo); // saludo configurable (config.json)
   lineas.push(""); // línea en blanco
 
+  // Productos sueltos (los que no son de box): una línea por producto.
   for (const id in carrito) {
     const producto = productosPorId[id];
+    if (esCategoriaBox(producto.categoria)) continue; // se agrupan abajo
     const cantidad = carrito[id];
     const subtotal = producto.precio * cantidad;
     // Ejemplo: "2x Tarta de Nuez - $90.000"
     lineas.push(
       cantidad + "x " + producto.nombre + " - " + formatearPrecio(subtotal),
+    );
+  }
+
+  // Categorías de box (ej. bocaditos): una línea con el surtido del box.
+  for (const catId in reglasPorCategoria) {
+    if (!esCategoriaBox(catId)) continue;
+    const r = resumenBox(catId);
+    if (r.suma === 0) continue;
+    // Ejemplo: "1 box de bocaditos (20u): 10 Rogelitos, 5 Brownie - $21.000"
+    lineas.push(
+      r.boxes + (r.boxes === 1 ? " box de " : " boxes de ") +
+      r.nombre.toLowerCase() + " (" + r.suma + "u): " +
+      r.partes.join(", ") + " - " + formatearPrecio(r.subtotal),
     );
   }
 

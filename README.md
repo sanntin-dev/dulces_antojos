@@ -15,6 +15,9 @@ cuentas de usuario: el pedido se concreta por WhatsApp.
 - Muestra el catálogo de productos ordenado por categorías (Tartas, Bocaditos, Galletas, etc.).
 - Barra de categorías que se queda fija arriba y se va resaltando según lo que mirás.
 - Carrito con botones + / – para elegir cantidades.
+- **Tocá la foto de un producto** para verla en grande.
+- **Bocaditos por box:** se venden en boxes de 20 unidades a elección. Una barrita
+  muestra cuánto falta para completar el box y no deja enviar el pedido si no cierra.
 - Botón final que abre WhatsApp con el resumen del pedido y el total ya escritos.
 
 ---
@@ -80,18 +83,53 @@ Si una foto todavía no existe, la app muestra un ícono de torta de relleno (no
 
 ---
 
+## 📦 Opciones de la categoría (nota y boxes)
+
+Además de su lista de productos, **cada categoría** puede tener estos campos
+opcionales. Van al lado de `"id"` y `"nombre"`, antes de `"productos"`:
+
+```json
+{
+  "id": "bocaditos",
+  "nombre": "Bocaditos",
+  "nota": "Se arman en boxes de 20 unidades a elección",
+  "unidadesPorBox": 20,
+  "cantidadPorClick": 5,
+  "productos": [ ... ]
+}
+```
+
+- **`nota`**: un texto que aparece debajo del título de la categoría (un aclarador).
+  Si no la querés, sacá la línea.
+- **`unidadesPorBox`**: si está, esa categoría se vende **en boxes** de ese tamaño.
+  La app suma todas las unidades de la categoría y exige que el total cierre en un
+  múltiplo (ej. con `20`: 20, 40, 60…). Mientras no cierre, muestra cuánto falta y no
+  deja enviar el pedido. En el carrito y en el WhatsApp los junta en una línea de box.
+  Si una categoría **no** tiene este campo, se vende suelta (como tartas o galletas).
+- **`cantidadPorClick`**: de a cuánto suma/resta cada botón + / –. Por defecto es `1`.
+  En bocaditos está en `5` para que se pidan de a 5.
+
+> Para cambiar el tamaño del box (ej. 20 → 24) o el salto (ej. 5 → 6), editás esos
+> dos números acá. No hace falta tocar el código. El precio del box es siempre la
+> **suma de lo elegido** (se respetan los precios por sabor).
+
+---
+
 ## 📱 Configuración (`config.json`)
 
 Los datos que cambian cada tanto viven en **`config.json`**, así no tenés que
 tocar el código:
 
-La config está agrupada por tema. Por ahora hay un solo grupo, `whatsapp`:
+La config está agrupada por tema (`whatsapp` y `redes`):
 
 ```json
 {
   "whatsapp": {
     "numero": "5492974611234",
     "mensaje_saludo": "¡Hola! Quiero hacer este pedido:"
+  },
+  "redes": {
+    "instagram": "https://instagram.com/tu_usuario"
   }
 }
 ```
@@ -100,9 +138,11 @@ La config está agrupada por tema. Por ahora hay un solo grupo, `whatsapp`:
   solo un ejemplo: reemplazalo por el real. Formato internacional, sin espacios,
   `+` ni guiones (54 = Argentina, 9 = celular).
 - **`whatsapp.mensaje_saludo`**: la primera línea del mensaje que se arma para WhatsApp.
+- **`redes.instagram`**: link de Instagram para el ícono del encabezado. Si lo
+  dejás vacío o sacás la línea, ese ícono no se muestra.
 
 > 💡 Igual que con `productos.json`, cuidá de no borrar comillas ni las comas.
-> Si más adelante se agregan más opciones, van como grupos nuevos al lado de `whatsapp`.
+> Si más adelante se agregan más opciones, van como grupos nuevos al lado de estos.
 
 ---
 

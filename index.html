@@ -106,6 +106,13 @@
     </div>
   </section>
 
+  <!-- 5) Visor de fotos: al tocar la foto de un producto, se ve en grande.
+       Se llena (src) desde app.js y se cierra tocando el fondo, la X o Escape. -->
+  <div class="visor" id="visor" hidden>
+    <button class="visor__cerrar" id="visorCerrar" aria-label="Cerrar">&times;</button>
+    <img class="visor__img" id="visorImg" alt="" />
+  </div>
+
   <script src="assets/app.js"></script>
 </body>
 </html>
