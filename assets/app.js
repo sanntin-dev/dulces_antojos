@@ -44,10 +44,15 @@ let productosPorId = {};
 //   - unidadesPorBox: tamaño del box. Si está, los productos de esa categoría se
 //     venden en boxes de ese tamaño (ej. 20) y el total tiene que cerrar en un
 //     múltiplo (20, 40, 60…) para poder pedir.
-//   - cantidadPorClick: de a cuánto suma/resta cada botón + / – .
-// Ejemplo: { "bocaditos": { nombre: "Bocaditos", unidadesPorBox: 20, cantidadPorClick: 5 } }
+//   - minimoPorSabor: mínimo de unidades por sabor. Si está (ej. 4), el primer
+//     toque entra directo en ese número y, si después se baja por debajo, el
+//     sabor se quita del todo.
+//   - pasosSuma: lista de botones de sumar (ej. [1, 4] dibuja "+1" y "+4").
+//   - cantidadPorClick: de a cuánto suma/resta el "+" simple (categorías sin
+//     pasosSuma). Por defecto 1.
+// Ejemplo: { "bocaditos": { unidadesPorBox: 20, minimoPorSabor: 4, pasosSuma: [1, 4] } }
 // Se llena al cargar el catálogo. Una categoría sin estos campos usa los
-// valores por defecto (sin box y de a uno).
+// valores por defecto (sin box, sin mínimo y de a uno).
 let reglasPorCategoria = {};
 
 /* ---------- 3) ARRANQUE ---------- */
@@ -142,6 +147,13 @@ function dibujarCatalogo(categorias) {
       nombre: categoria.nombre,
       unidadesPorBox: categoria.unidadesPorBox || 0,
       cantidadPorClick: categoria.cantidadPorClick || 1,
+      // Mínimo de unidades por sabor (0 = sin mínimo). En bocaditos es 4: es lo
+      // más chico que deja entrar las 5 variedades en un box de 20 (5 × 4 = 20).
+      minimoPorSabor: categoria.minimoPorSabor || 0,
+      // Botones de "sumar" que aparecen cuando ya hay al menos uno. Ej. [1, 4]
+      // dibuja un "+1" y un "+4". Si no viene, se usa un único "+" de a
+      // cantidadPorClick.
+      pasosSuma: categoria.pasosSuma || null,
     };
 
     // Nos quedamos solo con los productos ACTIVOS.
@@ -296,67 +308,122 @@ function crearPlaceholder() {
   return div;
 }
 
-// El control de cantidad cambia de forma:
-// - cantidad 0  -> solo un botón "+"
-// - cantidad >0 -> botón "–", número, botón "+"
+// El control de cantidad cambia de forma según la categoría y lo que ya haya:
+// - Sin nada elegido:
+//     · categoría con mínimo (ej. bocaditos) -> un botón "Agregar · 4" que entra
+//       directo en el mínimo (no tiene sentido cargar de a 1 desde cero).
+//     · categoría normal -> un único botón "+".
+// - Con al menos uno:
+//     · botón "–", número, y a la derecha los botones de sumar: si la categoría
+//       define pasosSuma (ej. [1, 4]) se dibujan "+1" y "+4"; si no, un único "+".
 function crearControlCantidad(idProducto) {
   const cant = document.createElement("div");
   cant.className = "cant";
   cant.dataset.id = idProducto; // para encontrarlo y redibujarlo después
 
   const cantidad = carrito[idProducto] || 0;
+  const minimo = minimoPorSaborDe(idProducto);
+  const pasos = pasosSumaDe(idProducto);
 
-  if (cantidad > 0) {
-    const menos = document.createElement("button");
-    menos.className = "cant__btn";
-    menos.textContent = "–";
-    menos.setAttribute("aria-label", "Quitar uno");
-    menos.addEventListener("click", function () {
-      restar(idProducto);
-    });
-    cant.appendChild(menos);
-
-    const num = document.createElement("span");
-    num.className = "cant__num";
-    num.textContent = cantidad;
-    cant.appendChild(num);
+  // --- Sin nada elegido ---
+  // Un único "+". En categorías con mínimo, ese primer toque entra directo en
+  // el mínimo (ej. 4); en las normales, suma de a cantidadPorClick.
+  if (cantidad === 0) {
+    const primerPaso = minimo > 0 ? minimo : pasoSimpleDe(idProducto);
+    cant.appendChild(crearBotonSumar(idProducto, "+", primerPaso));
+    return cant;
   }
 
-  const mas = document.createElement("button");
-  mas.className = "cant__btn";
-  mas.textContent = "+";
-  mas.setAttribute("aria-label", "Agregar uno");
-  mas.addEventListener("click", function () {
-    sumar(idProducto);
+  // --- Con al menos uno: "–", número y botones de sumar ---
+  const menos = document.createElement("button");
+  menos.className = "cant__btn";
+  menos.textContent = "–";
+  menos.setAttribute("aria-label", "Quitar uno");
+  menos.addEventListener("click", function () {
+    restar(idProducto);
   });
-  cant.appendChild(mas);
+  cant.appendChild(menos);
+
+  const num = document.createElement("span");
+  num.className = "cant__num";
+  num.textContent = cantidad;
+  cant.appendChild(num);
+
+  if (pasos) {
+    // Un botón por cada paso definido (ej. "+1" y "+4").
+    pasos.forEach(function (paso) {
+      cant.appendChild(crearBotonSumar(idProducto, "+" + paso, paso));
+    });
+  } else {
+    cant.appendChild(crearBotonSumar(idProducto, "+", pasoSimpleDe(idProducto)));
+  }
 
   return cant;
 }
 
+// Crea un botón redondo de "sumar" con su texto (ej. "+", "+1", "+4") y el paso
+// que agrega al tocarlo. Los de texto corto ("+1", "+4") llevan una clase extra
+// para achicar un poco la tipografía y que entren en mobile.
+function crearBotonSumar(idProducto, texto, paso) {
+  const boton = document.createElement("button");
+  boton.className = "cant__btn";
+  if (texto.length > 1) boton.classList.add("cant__btn--paso");
+  boton.textContent = texto;
+  boton.setAttribute("aria-label", "Agregar " + paso);
+  boton.addEventListener("click", function () {
+    sumar(idProducto, paso);
+  });
+  return boton;
+}
+
 /* ---------- 5) CARRITO ---------- */
 
-// De a cuánto suma/resta cada click para un producto, según su categoría.
-// Por defecto 1; los bocaditos, por ejemplo, van de a 5 (config en productos.json).
-function cantidadPorClickDe(idProducto) {
+// Paso del "+" simple para categorías normales (sin botones múltiples).
+// Por defecto 1; se puede subir con cantidadPorClick en el JSON.
+function pasoSimpleDe(idProducto) {
   const producto = productosPorId[idProducto];
   const regla = producto && reglasPorCategoria[producto.categoria];
   return (regla && regla.cantidadPorClick) || 1;
 }
 
-function sumar(idProducto) {
-  carrito[idProducto] = (carrito[idProducto] || 0) + cantidadPorClickDe(idProducto);
-  refrescarControl(idProducto);
-  refrescarBurbuja();
-  refrescarProgresos();
+// Mínimo de unidades por sabor de la categoría del producto (0 = sin mínimo).
+function minimoPorSaborDe(idProducto) {
+  const producto = productosPorId[idProducto];
+  const regla = producto && reglasPorCategoria[producto.categoria];
+  return (regla && regla.minimoPorSabor) || 0;
 }
 
+// Lista de pasos de "sumar" (ej. [1, 4]) o null si la categoría usa un único "+".
+function pasosSumaDe(idProducto) {
+  const producto = productosPorId[idProducto];
+  const regla = producto && reglasPorCategoria[producto.categoria];
+  return (regla && regla.pasosSuma) || null;
+}
+
+// Suma "paso" unidades a un producto. Si no se pasa "paso", usa el del "+" simple.
+function sumar(idProducto, paso) {
+  const incremento = paso || pasoSimpleDe(idProducto);
+  fijarCantidad(idProducto, (carrito[idProducto] || 0) + incremento);
+}
+
+// Resta de a uno (en categorías con mínimo) o de a cantidadPorClick (normales).
+// Si el resultado queda por debajo del mínimo del sabor, se saca el producto:
+// no dejamos cantidades "rotas" como 3 bocaditos cuando el mínimo es 4.
 function restar(idProducto) {
   if (!carrito[idProducto]) return;
-  carrito[idProducto] -= cantidadPorClickDe(idProducto);
-  // Si llega a 0 (o menos), lo sacamos del carrito para mantenerlo limpio.
-  if (carrito[idProducto] <= 0) {
+  const paso = minimoPorSaborDe(idProducto) ? 1 : pasoSimpleDe(idProducto);
+  fijarCantidad(idProducto, carrito[idProducto] - paso);
+}
+
+// Deja un producto en una cantidad exacta y refresca toda la pantalla. Si la
+// cantidad cae por debajo del mínimo del sabor (o a cero), el producto se quita
+// del carrito para mantenerlo limpio.
+function fijarCantidad(idProducto, cantidad) {
+  const minimo = minimoPorSaborDe(idProducto);
+  if (cantidad < minimo || cantidad <= 0) {
     delete carrito[idProducto];
+  } else {
+    carrito[idProducto] = cantidad;
   }
   refrescarControl(idProducto);
   refrescarBurbuja();

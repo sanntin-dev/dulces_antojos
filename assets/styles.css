@@ -234,6 +234,11 @@ body.sin-scroll {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  /* Si el control de cantidad trae varios botones (+1 / +4) y la pantalla es
+     muy angosta, dejamos que el control baje abajo del precio en vez de
+     desbordar. */
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 .card__precio {
@@ -246,7 +251,11 @@ body.sin-scroll {
 .cant {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  /* Siempre pegado a la derecha, aunque haya muchos botones (+1 +4 +5) o la
+     pantalla sea chica y el control baje a una segunda línea bajo el precio. */
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 /* Botones redondos grandes, fáciles de tocar con el pulgar */
@@ -266,6 +275,10 @@ body.sin-scroll {
   padding: 0;
 }
 .cant__btn:active { opacity: 0.8; }
+
+/* Botones de paso con texto ("+1", "+4"): mismo círculo, tipografía un poco
+   más chica para que el número entre cómodo. */
+.cant__btn--paso { font-size: 15px; font-weight: 700; }
 
 .cant__num {
   min-width: 18px;

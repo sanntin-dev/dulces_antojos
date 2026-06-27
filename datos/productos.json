@@ -51,7 +51,8 @@
       "nombre": "Bocaditos",
       "nota": "Se arman en boxes de 20 unidades a elección",
       "unidadesPorBox": 20,
-      "cantidadPorClick": 5,
+      "minimoPorSabor": 4,
+      "pasosSuma": [1, 4],
       "productos": [
         {
           "id": "rogelitos",
