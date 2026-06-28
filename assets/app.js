@@ -585,7 +585,11 @@ function crearFotoBox(tipo) {
   img.loading = "lazy";
   img.onerror = function () {
     // Primero probamos con la foto de respaldo (la del primer sabor).
-    if (img.dataset.respaldo !== "1" && respaldo && img.src.indexOf(respaldo) === -1) {
+    if (
+      img.dataset.respaldo !== "1" &&
+      respaldo &&
+      img.src.indexOf(respaldo) === -1
+    ) {
       img.dataset.respaldo = "1";
       img.src = respaldo;
       return;
@@ -623,7 +627,9 @@ function crearConfigTipo(tipo) {
     label.className = "box-config__label";
     label.textContent =
       "Elegí " +
-      (tipo.cantidadSabores === 1 ? "1 sabor" : tipo.cantidadSabores + " sabores");
+      (tipo.cantidadSabores === 1
+        ? "1 sabor"
+        : tipo.cantidadSabores + " sabores");
     panel.appendChild(label);
 
     const picker = document.createElement("div");
@@ -821,7 +827,10 @@ function crearBoxAgregado(box, indice) {
   const nombre = document.createElement("div");
   nombre.className = "box-item__nombre";
   nombre.textContent =
-    "Box " + (indice + 1) + " · " + nombreTipoDeBox(box) +
+    "Box " +
+    (indice + 1) +
+    " · " +
+    nombreTipoDeBox(box) +
     (esADefinir(box) ? "" : " (" + unidadesPorBox() + "u)");
   texto.appendChild(nombre);
 
@@ -948,7 +957,10 @@ function toggleComboConfig(producto) {
     comboDraft = null;
     dibujarComboConfig(producto);
   } else {
-    comboDraft = { comboId: producto.id, slots: expandirSlots(producto.componentes) };
+    comboDraft = {
+      comboId: producto.id,
+      slots: expandirSlots(producto.componentes),
+    };
     dibujarComboConfig(producto);
   }
 }
@@ -1059,7 +1071,8 @@ function crearPasoBox(slot, producto) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className =
-      "combo-chip" + (slot.sel && slot.sel.tipo === tipo.id ? " combo-chip--on" : "");
+      "combo-chip" +
+      (slot.sel && slot.sel.tipo === tipo.id ? " combo-chip--on" : "");
     chip.textContent = tipo.nombre;
     chip.addEventListener("click", function () {
       slot.sel = { tipo: tipo.id };
@@ -1081,7 +1094,8 @@ function crearPasoBox(slot, producto) {
     cont.appendChild(desc);
 
     if (tipo.cantidadSabores) {
-      while (slot.sel.sabores.length < tipo.cantidadSabores) slot.sel.sabores.push(null);
+      while (slot.sel.sabores.length < tipo.cantidadSabores)
+        slot.sel.sabores.push(null);
       const sabores = productosDeCategoria(slot.categoria).map(function (s) {
         return { id: s.id, nombre: s.nombre, imagen: s.imagen };
       });
@@ -1112,7 +1126,13 @@ function crearPasoBox(slot, producto) {
 
 // Desplegable genérico con miniatura (sirve para tartas y para sabores).
 // opciones: [{ id, nombre, imagen, precioTexto? }]. excluir: ids a ocultar.
-function crearDropdownGenerico(opciones, valorSel, placeholder, excluir, onSelect) {
+function crearDropdownGenerico(
+  opciones,
+  valorSel,
+  placeholder,
+  excluir,
+  onSelect,
+) {
   const dd = document.createElement("div");
   dd.className = "dd";
 
@@ -1234,7 +1254,8 @@ function refrescarComboCuenta(comboId) {
     el.hidden = true;
   } else {
     el.hidden = false;
-    el.textContent = n + (n === 1 ? " agregado al pedido" : " agregados al pedido");
+    el.textContent =
+      n + (n === 1 ? " agregado al pedido" : " agregados al pedido");
   }
 }
 
@@ -1268,7 +1289,7 @@ function refrescarBurbuja() {
   const cantidad = contarItems();
 
   cantEl.textContent = cantidad + (cantidad === 1 ? " producto" : " productos");
-  totalEl.textContent = formatearPrecio(calcularTotal());
+  totalEl.textContent = totalTexto();
 
   barra.hidden = cantidad === 0;
 }
@@ -1295,13 +1316,36 @@ function calcularTotal() {
   return total;
 }
 
+// ¿Hay algo "a definir" en el pedido (ej. un box personalizado)? En ese caso el
+// total mostrado no es el final: falta cotizar esa parte por WhatsApp.
+function hayADefinir() {
+  return boxesBocaditos.some(function (box) {
+    return esADefinir(box);
+  });
+}
+
+// Texto del total para mostrar. Si hay algo a definir, lo aclara:
+//   - con precio + a definir -> "$19.000 + a definir"
+//   - solo a definir         -> "A definir"
+function totalTexto() {
+  const total = calcularTotal();
+  if (hayADefinir()) {
+    return total > 0 ? formatearPrecio(total) + " + a definir" : "A definir";
+  }
+  return formatearPrecio(total);
+}
+
 /* ---------- 7) PANEL DEL PEDIDO ---------- */
 
 function conectarPanel() {
-  document.getElementById("barraVerPedido").addEventListener("click", abrirPanel);
+  document
+    .getElementById("barraVerPedido")
+    .addEventListener("click", abrirPanel);
   document.getElementById("sheetCerrar").addEventListener("click", cerrarPanel);
   document.getElementById("overlay").addEventListener("click", cerrarPanel);
-  document.getElementById("btnWhatsapp").addEventListener("click", enviarPorWhatsapp);
+  document
+    .getElementById("btnWhatsapp")
+    .addEventListener("click", enviarPorWhatsapp);
 
   document.getElementById("visor").addEventListener("click", cerrarVisor);
   document.getElementById("visorCerrar").addEventListener("click", cerrarVisor);
@@ -1392,7 +1436,7 @@ function dibujarPedido() {
     cont.appendChild(crearLineaCombo(combo, i));
   });
 
-  totalEl.textContent = formatearPrecio(calcularTotal());
+  totalEl.textContent = totalTexto();
 }
 
 // Línea de un combo en el pedido: nombre + precio fijo, y debajo sus partes.
@@ -1491,7 +1535,10 @@ function crearLineaBox(box, numero, indice) {
   const nombre = document.createElement("div");
   nombre.className = "item__nombre";
   nombre.textContent =
-    "Box " + numero + " · " + nombreTipoDeBox(box) +
+    "Box " +
+    numero +
+    " · " +
+    nombreTipoDeBox(box) +
     (esADefinir(box) ? "" : " (" + unidadesPorBox() + "u)");
   texto.appendChild(nombre);
 
@@ -1505,7 +1552,10 @@ function crearLineaBox(box, numero, indice) {
     contenidoDeBox(box).forEach(function (it) {
       const fila = document.createElement("div");
       fila.textContent =
-        it.cantidad + "x " + it.nombre + " — " +
+        it.cantidad +
+        "x " +
+        it.nombre +
+        " — " +
         formatearPrecio(it.precio * it.cantidad);
       detalle.appendChild(fila);
     });
@@ -1558,17 +1608,26 @@ function enviarPorWhatsapp() {
       lineas.push(
         "Box " + (i + 1) + " · " + nombreTipoDeBox(box) + " - A definir",
       );
-      lineas.push("  • Lo definimos por acá");
       return;
     }
     lineas.push(
-      "Box " + (i + 1) + " · " + nombreTipoDeBox(box) +
-      " (" + unidadesPorBox() + "u) - " + formatearPrecio(precioDeBox(box)),
+      "Box " +
+        (i + 1) +
+        " · " +
+        nombreTipoDeBox(box) +
+        " (" +
+        unidadesPorBox() +
+        "u) - " +
+        formatearPrecio(precioDeBox(box)),
     );
     contenidoDeBox(box).forEach(function (it) {
       lineas.push(
-        "  • " + it.cantidad + "x " + it.nombre + " - " +
-        formatearPrecio(it.precio * it.cantidad),
+        "  • " +
+          it.cantidad +
+          "x " +
+          it.nombre +
+          " - " +
+          formatearPrecio(it.precio * it.cantidad),
       );
     });
   });
@@ -1586,7 +1645,7 @@ function enviarPorWhatsapp() {
   });
 
   lineas.push("");
-  lineas.push("Total: " + formatearPrecio(calcularTotal()));
+  lineas.push("Total: " + totalTexto());
 
   const mensaje = encodeURIComponent(lineas.join("\n"));
   const url = "https://wa.me/" + config.whatsapp.numero + "?text=" + mensaje;
@@ -1618,7 +1677,11 @@ function marcarChipActivo(idSeccion) {
     const activo = chip.dataset.target === idSeccion;
     chip.classList.toggle("chip--activo", activo);
     if (activo) {
-      chip.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      chip.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
     }
   });
 }
