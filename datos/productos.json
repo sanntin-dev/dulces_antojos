@@ -164,7 +164,11 @@
           "descripcion": "Tarta de 24cm a elección + 2 bandejas de bocaditos a elección (40 en total)",
           "precio": 60000,
           "imagen": "img/productos/combo-cumple.jpg",
-          "activo": 1
+          "activo": 1,
+          "componentes": [
+            { "elegir": "producto", "categoria": "tartas", "cantidad": 1, "label": "Elegí tu tarta" },
+            { "elegir": "box", "categoria": "bocaditos", "cantidad": 2, "label": "Box" }
+          ]
         }
       ]
     }

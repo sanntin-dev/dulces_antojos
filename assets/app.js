@@ -48,6 +48,17 @@ let productosPorId = {};
 // reconoce porque trae "tiposBox" en el JSON. Se llena al cargar el catálogo.
 let categoriaBocaditos = null;
 
+// Índice de categorías por id (para que los combos puedan buscar las opciones
+// de cada categoría en vivo: tartas, bocaditos, etc.). Se llena al cargar.
+let categoriasPorId = {};
+
+// Combos ya armados (cada uno con sus partes elegidas). Ej:
+//   [{ comboId: "combo-cumple", slots: [{elegir, categoria, sel}, ...] }]
+let combosArmados = [];
+
+// Combo que se está armando ahora (borrador), mientras se eligen sus partes.
+let comboDraft = null;
+
 // Sabores elegidos en el armador del box mixto (uno por cada desplegable).
 // Ej: ["rogelitos", null] mientras se está eligiendo el segundo.
 let mixtoSel = [];
@@ -118,6 +129,10 @@ function dibujarCatalogo(categorias) {
   catalogo.innerHTML = "";
 
   categorias.forEach(function (categoria) {
+    // Guardamos la categoría en el índice (la usan los combos para buscar sus
+    // opciones: tartas, bocaditos, etc.).
+    categoriasPorId[categoria.id] = categoria;
+
     // Solo productos activos (activo === 1, o sin el campo).
     const activos = categoria.productos.filter(function (p) {
       return p.activo !== 0;
@@ -166,7 +181,9 @@ function dibujarCatalogo(categorias) {
       dibujarArmadorBoxes(seccion);
     } else {
       activos.forEach(function (p) {
-        seccion.appendChild(crearCard(p));
+        // Un producto con "componentes" es un combo: se arma eligiendo sus
+        // partes (ej. 1 tarta + 2 boxes), no se agrega de a uno.
+        seccion.appendChild(p.componentes ? crearCardCombo(p) : crearCard(p));
       });
     }
 
@@ -429,6 +446,14 @@ function dibujarArmadorBoxes(seccion) {
   // debajo de la fila del cuadrado elegido (lo arma dibujarCuadros).
   dibujarCuadros(cuadros);
   refrescarBoxesLista(lista);
+
+  // Al cruzar el breakpoint (celular <-> tablet/desktop) cambia la cantidad de
+  // columnas, así que redibujamos para reubicar el panel debajo de la fila.
+  window
+    .matchMedia("(min-width: 768px)")
+    .addEventListener("change", function () {
+      dibujarCuadros();
+    });
 }
 
 // (Re)dibuja la vitrina de sabores: una grilla con las fotos en grande y el
@@ -475,7 +500,9 @@ function dibujarCuadros(cont) {
   cont.innerHTML = "";
 
   const tipos = categoriaBocaditos.tiposBox;
-  const columnas = 2;
+  // En pantalla ancha los cuadrados van en una sola fila (4 columnas); en
+  // celular, de a 2. Tiene que coincidir con el CSS (@media min-width 768).
+  const columnas = window.matchMedia("(min-width: 768px)").matches ? 4 : 2;
   const elegido = Math.max(
     0,
     tipos.findIndex(function (t) {
@@ -828,6 +855,409 @@ function crearBoxAgregado(box, indice) {
   return item;
 }
 
+/* ---------- 6b) ARMADOR DE COMBOS ---------- */
+// Un combo (ej. Combo Cumpleaños) tiene precio fijo y se arma eligiendo sus
+// partes, que salen del catálogo en vivo: "componentes" referencia categorías
+// (ej. 1 producto de "tartas" + 2 "box" de "bocaditos"). Nada hardcodeado.
+
+// Productos activos de una categoría (para los pasos del combo).
+function productosDeCategoria(catId) {
+  const cat = categoriasPorId[catId];
+  if (!cat) return [];
+  return cat.productos.filter(function (p) {
+    return p.activo !== 0;
+  });
+}
+
+// Tarjeta de un combo: foto + info + botón "Armar combo", y debajo un panel
+// (oculto) donde se eligen las partes.
+function crearCardCombo(producto) {
+  const cont = document.createElement("div");
+  cont.className = "combo";
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const img = document.createElement("img");
+  img.className = "card__foto";
+  img.src = producto.imagen;
+  img.alt = producto.nombre;
+  img.loading = "lazy";
+  img.onerror = function () {
+    img.replaceWith(crearPlaceholder());
+  };
+  img.addEventListener("click", function () {
+    abrirVisor(producto.imagen, producto.nombre);
+  });
+  card.appendChild(img);
+
+  const info = document.createElement("div");
+  info.className = "card__info";
+
+  const nombre = document.createElement("h3");
+  nombre.className = "card__nombre";
+  nombre.textContent = producto.nombre;
+  info.appendChild(nombre);
+
+  const desc = document.createElement("p");
+  desc.className = "card__desc";
+  desc.textContent = producto.descripcion;
+  info.appendChild(desc);
+
+  const fila = document.createElement("div");
+  fila.className = "card__fila";
+
+  const precio = document.createElement("span");
+  precio.className = "card__precio";
+  precio.textContent = formatearPrecio(producto.precio);
+  fila.appendChild(precio);
+
+  const armar = document.createElement("button");
+  armar.className = "combo__armar";
+  armar.textContent = "Armar combo";
+  armar.addEventListener("click", function () {
+    toggleComboConfig(producto);
+  });
+  fila.appendChild(armar);
+
+  info.appendChild(fila);
+
+  // Contador de combos de este tipo ya agregados al pedido.
+  const cuenta = document.createElement("p");
+  cuenta.className = "combo__cuenta";
+  cuenta.id = "combo-cuenta-" + producto.id;
+  cuenta.hidden = true;
+  info.appendChild(cuenta);
+
+  card.appendChild(info);
+  cont.appendChild(card);
+
+  const config = document.createElement("div");
+  config.className = "combo__config";
+  config.id = "combo-config-" + producto.id;
+  config.hidden = true;
+  cont.appendChild(config);
+
+  return cont;
+}
+
+// Abre/cierra el panel de armado de un combo.
+function toggleComboConfig(producto) {
+  const abierto = comboDraft && comboDraft.comboId === producto.id;
+  if (abierto) {
+    comboDraft = null;
+    dibujarComboConfig(producto);
+  } else {
+    comboDraft = { comboId: producto.id, slots: expandirSlots(producto.componentes) };
+    dibujarComboConfig(producto);
+  }
+}
+
+// Expande los "componentes" en una lista de lugares a elegir (slots). Ej:
+// [{tarta x1}, {box x2}] -> [tarta, box(1/2), box(2/2)].
+function expandirSlots(componentes) {
+  const slots = [];
+  componentes.forEach(function (c) {
+    const n = c.cantidad || 1;
+    for (let k = 0; k < n; k++) {
+      slots.push({
+        elegir: c.elegir,
+        categoria: c.categoria,
+        label: c.label,
+        indice: k,
+        total: n,
+        sel: null,
+      });
+    }
+  });
+  return slots;
+}
+
+// (Re)dibuja el panel de armado del combo según el borrador (comboDraft).
+function dibujarComboConfig(producto) {
+  const cont = document.getElementById("combo-config-" + producto.id);
+  if (!cont) return;
+  cont.innerHTML = "";
+
+  if (!comboDraft || comboDraft.comboId !== producto.id) {
+    cont.hidden = true;
+    return;
+  }
+  cont.hidden = false;
+
+  const panel = document.createElement("div");
+  panel.className = "combo-config__panel";
+
+  comboDraft.slots.forEach(function (slot, i) {
+    panel.appendChild(crearPasoCombo(slot, i, producto));
+  });
+
+  const pie = document.createElement("div");
+  pie.className = "box-tipo__pie";
+
+  const precio = document.createElement("span");
+  precio.className = "box-tipo__precio";
+  precio.textContent = formatearPrecio(producto.precio);
+  pie.appendChild(precio);
+
+  const btn = document.createElement("button");
+  btn.className = "box-agregar";
+  btn.textContent = "Agregar combo";
+  btn.disabled = !comboCompleto();
+  btn.addEventListener("click", function () {
+    agregarCombo(producto);
+  });
+  pie.appendChild(btn);
+
+  panel.appendChild(pie);
+  cont.appendChild(panel);
+}
+
+// Un paso del armado: título numerado + el selector según el tipo de parte.
+function crearPasoCombo(slot, i, producto) {
+  const paso = document.createElement("div");
+  paso.className = "combo-paso";
+
+  const t = document.createElement("p");
+  t.className = "combo-paso__t";
+  const num = document.createElement("span");
+  num.className = "combo-paso__num";
+  num.textContent = i + 1;
+  t.appendChild(num);
+  const label = document.createElement("span");
+  label.textContent =
+    slot.total > 1 ? slot.label + " " + (slot.indice + 1) : slot.label;
+  t.appendChild(label);
+  paso.appendChild(t);
+
+  if (slot.elegir === "producto") {
+    // Sin precio: el combo tiene precio fijo, no importa qué parte elijas.
+    const opciones = productosDeCategoria(slot.categoria).map(function (p) {
+      return { id: p.id, nombre: p.nombre, imagen: p.imagen };
+    });
+    paso.appendChild(
+      crearDropdownGenerico(opciones, slot.sel, "Elegí…", [], function (id) {
+        slot.sel = id;
+        dibujarComboConfig(producto);
+      }),
+    );
+  } else if (slot.elegir === "box") {
+    paso.appendChild(crearPasoBox(slot, producto));
+  }
+
+  return paso;
+}
+
+// Cuerpo del paso "box": chips para el tipo y, si hace falta, los sabores.
+function crearPasoBox(slot, producto) {
+  const cont = document.createElement("div");
+  const cat = categoriasPorId[slot.categoria];
+
+  const chips = document.createElement("div");
+  chips.className = "combo-chips";
+  cat.tiposBox.forEach(function (tipo) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className =
+      "combo-chip" + (slot.sel && slot.sel.tipo === tipo.id ? " combo-chip--on" : "");
+    chip.textContent = tipo.nombre;
+    chip.addEventListener("click", function () {
+      slot.sel = { tipo: tipo.id };
+      if (tipo.cantidadSabores) slot.sel.sabores = [];
+      dibujarComboConfig(producto);
+    });
+    chips.appendChild(chip);
+  });
+  cont.appendChild(chips);
+
+  if (slot.sel && slot.sel.tipo) {
+    const tipo = cat.tiposBox.find(function (t) {
+      return t.id === slot.sel.tipo;
+    });
+
+    const desc = document.createElement("p");
+    desc.className = "combo-paso__desc";
+    desc.textContent = tipo.descripcion;
+    cont.appendChild(desc);
+
+    if (tipo.cantidadSabores) {
+      while (slot.sel.sabores.length < tipo.cantidadSabores) slot.sel.sabores.push(null);
+      const sabores = productosDeCategoria(slot.categoria).map(function (s) {
+        return { id: s.id, nombre: s.nombre, imagen: s.imagen };
+      });
+      for (let j = 0; j < tipo.cantidadSabores; j++) {
+        const excluir = slot.sel.sabores.filter(function (x, k) {
+          return k !== j && x;
+        });
+        cont.appendChild(
+          crearDropdownGenerico(
+            sabores,
+            slot.sel.sabores[j],
+            "Elegí un sabor…",
+            excluir,
+            (function (idx) {
+              return function (id) {
+                slot.sel.sabores[idx] = id;
+                dibujarComboConfig(producto);
+              };
+            })(j),
+          ),
+        );
+      }
+    }
+  }
+
+  return cont;
+}
+
+// Desplegable genérico con miniatura (sirve para tartas y para sabores).
+// opciones: [{ id, nombre, imagen, precioTexto? }]. excluir: ids a ocultar.
+function crearDropdownGenerico(opciones, valorSel, placeholder, excluir, onSelect) {
+  const dd = document.createElement("div");
+  dd.className = "dd";
+
+  const elegido = valorSel
+    ? opciones.find(function (o) {
+        return o.id === valorSel;
+      })
+    : null;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "dd__toggle";
+  if (elegido) {
+    toggle.appendChild(crearThumb(elegido));
+    const txt = document.createElement("span");
+    txt.className = "dd__txt";
+    txt.textContent = elegido.nombre;
+    toggle.appendChild(txt);
+  } else {
+    const txt = document.createElement("span");
+    txt.className = "dd__txt dd__txt--placeholder";
+    txt.textContent = placeholder;
+    toggle.appendChild(txt);
+  }
+  const chev = document.createElement("span");
+  chev.className = "dd__chev";
+  chev.textContent = "▾";
+  toggle.appendChild(chev);
+  toggle.addEventListener("click", function (e) {
+    e.stopPropagation();
+    document.querySelectorAll(".dd--abierto").forEach(function (otro) {
+      if (otro !== dd) otro.classList.remove("dd--abierto");
+    });
+    dd.classList.toggle("dd--abierto");
+  });
+  dd.appendChild(toggle);
+
+  const menu = document.createElement("div");
+  menu.className = "dd__menu";
+  opciones.forEach(function (o) {
+    if (excluir.indexOf(o.id) !== -1) return;
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "dd__opt";
+    opt.appendChild(crearThumb(o));
+    const txt = document.createElement("span");
+    txt.className = "dd__txt";
+    txt.textContent = o.nombre;
+    opt.appendChild(txt);
+    if (o.precioTexto) {
+      const pr = document.createElement("span");
+      pr.className = "dd__precio";
+      pr.textContent = o.precioTexto;
+      opt.appendChild(pr);
+    }
+    opt.addEventListener("click", function () {
+      onSelect(o.id);
+    });
+    menu.appendChild(opt);
+  });
+  dd.appendChild(menu);
+
+  return dd;
+}
+
+// ¿Están todas las partes del combo elegidas?
+function comboCompleto() {
+  if (!comboDraft) return false;
+  return comboDraft.slots.every(function (slot) {
+    if (slot.elegir === "producto") return !!slot.sel;
+    if (slot.elegir === "box") {
+      if (!slot.sel || !slot.sel.tipo) return false;
+      const cat = categoriasPorId[slot.categoria];
+      const tipo = cat.tiposBox.find(function (t) {
+        return t.id === slot.sel.tipo;
+      });
+      if (tipo && tipo.cantidadSabores) {
+        for (let j = 0; j < tipo.cantidadSabores; j++) {
+          if (!slot.sel.sabores || !slot.sel.sabores[j]) return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  });
+}
+
+// Agrega el combo armado al pedido y cierra el panel.
+function agregarCombo(producto) {
+  if (!comboCompleto()) return;
+  combosArmados.push({
+    comboId: producto.id,
+    slots: JSON.parse(JSON.stringify(comboDraft.slots)),
+  });
+  comboDraft = null;
+  dibujarComboConfig(producto);
+  refrescarComboCuenta(producto.id);
+  refrescarBurbuja();
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
+}
+
+// Quita el combo número "indice" de la lista.
+function quitarCombo(indice) {
+  const comboId = combosArmados[indice] && combosArmados[indice].comboId;
+  combosArmados.splice(indice, 1);
+  if (comboId) refrescarComboCuenta(comboId);
+  refrescarBurbuja();
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
+}
+
+// Actualiza el textito "X en tu pedido" debajo de un combo.
+function refrescarComboCuenta(comboId) {
+  const el = document.getElementById("combo-cuenta-" + comboId);
+  if (!el) return;
+  const n = combosArmados.filter(function (c) {
+    return c.comboId === comboId;
+  }).length;
+  if (n === 0) {
+    el.hidden = true;
+  } else {
+    el.hidden = false;
+    el.textContent = n + (n === 1 ? " agregado al pedido" : " agregados al pedido");
+  }
+}
+
+// Texto de una parte elegida del combo (para el pedido y WhatsApp).
+function textoSlotCombo(slot) {
+  if (slot.elegir === "producto") {
+    return productosPorId[slot.sel].nombre;
+  }
+  // box
+  const nombreTipo = nombreTipoDeBox(slot.sel);
+  const sab =
+    slot.sel.sabores && slot.sel.sabores.length
+      ? ": " +
+        slot.sel.sabores
+          .map(function (id) {
+            return productosPorId[id].nombre;
+          })
+          .join(" + ")
+      : "";
+  const num = slot.total > 1 ? " " + (slot.indice + 1) : "";
+  return "Box" + num + " · " + nombreTipo + sab;
+}
+
 /* ---------- BARRA FIJA DE ABAJO ---------- */
 
 // Actualiza la barra fija (cantidad + total) y la muestra u oculta.
@@ -843,20 +1273,24 @@ function refrescarBurbuja() {
   barra.hidden = cantidad === 0;
 }
 
-// Cuenta unidades: productos sueltos + las de cada box (ej. 20 por box).
+// Cuenta items: productos sueltos (unidades) + boxes + combos.
 function contarItems() {
   let total = 0;
   for (const id in carrito) total += carrito[id];
   total += boxesBocaditos.length * unidadesPorBox();
+  total += combosArmados.length;
   return total;
 }
 
-// Precio total del pedido: productos sueltos + boxes.
+// Precio total del pedido: productos sueltos + boxes + combos (precio fijo).
 function calcularTotal() {
   let total = 0;
   for (const id in carrito) total += productosPorId[id].precio * carrito[id];
   boxesBocaditos.forEach(function (box) {
     total += precioDeBox(box);
+  });
+  combosArmados.forEach(function (combo) {
+    total += productosPorId[combo.comboId].precio;
   });
   return total;
 }
@@ -926,7 +1360,10 @@ function dibujarPedido() {
   cont.innerHTML = "";
 
   const ids = Object.keys(carrito);
-  const vacio = ids.length === 0 && boxesBocaditos.length === 0;
+  const vacio =
+    ids.length === 0 &&
+    boxesBocaditos.length === 0 &&
+    combosArmados.length === 0;
 
   if (vacio) {
     const p = document.createElement("p");
@@ -950,7 +1387,55 @@ function dibujarPedido() {
     cont.appendChild(crearLineaBox(box, i + 1, i));
   });
 
+  // Combos: una línea por combo, con sus partes.
+  combosArmados.forEach(function (combo, i) {
+    cont.appendChild(crearLineaCombo(combo, i));
+  });
+
   totalEl.textContent = formatearPrecio(calcularTotal());
+}
+
+// Línea de un combo en el pedido: nombre + precio fijo, y debajo sus partes.
+function crearLineaCombo(combo, indice) {
+  const producto = productosPorId[combo.comboId];
+
+  const item = document.createElement("div");
+  item.className = "item";
+
+  const texto = document.createElement("div");
+  texto.className = "item__texto";
+
+  const nombre = document.createElement("div");
+  nombre.className = "item__nombre";
+  nombre.textContent = producto.nombre;
+  texto.appendChild(nombre);
+
+  const detalle = document.createElement("div");
+  detalle.className = "item__detalle";
+  combo.slots.forEach(function (slot) {
+    const fila = document.createElement("div");
+    fila.textContent = textoSlotCombo(slot);
+    detalle.appendChild(fila);
+  });
+  texto.appendChild(detalle);
+
+  item.appendChild(texto);
+
+  const linea = document.createElement("span");
+  linea.className = "item__linea";
+  linea.textContent = formatearPrecio(producto.precio);
+  item.appendChild(linea);
+
+  const quitarBtn = document.createElement("button");
+  quitarBtn.className = "item__quitar";
+  quitarBtn.textContent = "×";
+  quitarBtn.setAttribute("aria-label", "Quitar " + producto.nombre);
+  quitarBtn.addEventListener("click", function () {
+    quitarCombo(indice);
+  });
+  item.appendChild(quitarBtn);
+
+  return item;
 }
 
 // Línea de un producto suelto en el pedido.
@@ -1085,6 +1570,18 @@ function enviarPorWhatsapp() {
         "  • " + it.cantidad + "x " + it.nombre + " - " +
         formatearPrecio(it.precio * it.cantidad),
       );
+    });
+  });
+
+  // Combos: nombre + precio fijo, y debajo cada parte elegida.
+  //   Combo Cumpleaños - $60.000
+  //     • Tarta de Nuez
+  //     • Box 1 · Variedad
+  combosArmados.forEach(function (combo) {
+    const producto = productosPorId[combo.comboId];
+    lineas.push(producto.nombre + " - " + formatearPrecio(producto.precio));
+    combo.slots.forEach(function (slot) {
+      lineas.push("  • " + textoSlotCombo(slot));
     });
   });
 

@@ -809,6 +809,108 @@ body.sin-scroll {
 }
 
 /* ============================================================
+   ARMADOR DE COMBOS
+   ============================================================ */
+.combo {
+  border-bottom: 1px solid var(--borde);
+}
+.combo .card {
+  border-bottom: none;
+}
+/* Botón "Armar combo" (en la card del combo). */
+.combo__armar {
+  border: none;
+  border-radius: 99px;
+  background: var(--lavanda);
+  color: var(--crema);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+  margin-left: auto;
+}
+.combo__armar:active { opacity: 0.85; }
+.combo__cuenta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--verde-ok);
+  margin: 8px 0 0;
+}
+
+/* Panel donde se eligen las partes del combo. */
+.combo__config {
+  padding: 0 0 14px;
+}
+.combo-config__panel {
+  background: #fff;
+  border: 1px solid var(--lavanda);
+  border-radius: 14px;
+  padding: 14px;
+}
+.combo-paso {
+  padding: 0 0 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--borde);
+}
+.combo-paso__t {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.combo-paso__num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--lavanda);
+  color: var(--crema);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.combo-paso__desc {
+  font-size: 12px;
+  color: var(--marron-claro);
+  margin: 8px 0;
+}
+/* Chips para elegir el tipo de box dentro del combo. */
+.combo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.combo-chip {
+  font-size: 13px;
+  padding: 7px 12px;
+  border-radius: 99px;
+  border: 1px solid #d8cfc0;
+  background: #fff;
+  color: #7a5fb0;
+  cursor: pointer;
+}
+.combo-chip--on {
+  background: var(--lavanda);
+  color: var(--crema);
+  border-color: var(--lavanda);
+  font-weight: 600;
+}
+/* Los desplegables del combo van apilados con un poco de aire. */
+.combo-paso .dd {
+  margin-top: 8px;
+}
+/* Precio dentro del menú de un desplegable (ej. precio de cada tarta). */
+.dd__precio {
+  font-size: 12px;
+  color: var(--lavanda);
+  font-weight: 700;
+  margin-left: auto;
+}
+
+/* ============================================================
    RESPONSIVE — Tablet y computadora (pantallas anchas)
    En el celular se ve como hasta acá (una sola columna angosta).
    De 768px para arriba ensanchamos el marco y mostramos los
@@ -847,6 +949,27 @@ body.sin-scroll {
   .box-progreso {
     grid-column: 1 / -1; /* ocupar las dos columnas */
   }
+
+  /* La sección de bocaditos NO usa la grilla de 2 columnas de cards: su
+     contenido (vitrina de sabores y selectores de box) maneja sus propias
+     columnas. Si no, sus partes se acomodarían mal en esas 2 columnas. */
+  #seccion-bocaditos {
+    display: block;
+  }
+  /* La vitrina de sabores aprovecha el ancho con más columnas (fotos más
+     chicas en vez de 2 gigantes). */
+  #seccion-bocaditos .vitrina {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+  /* Los 4 tipos de box entran en UNA sola fila (4 columnas), así quedan de buen
+     tamaño en vez de 2 gigantes. El panel de configuración aparece debajo de esa
+     fila (lo ubica app.js, que sabe cuántas columnas hay según el ancho). */
+  #seccion-bocaditos .box-cuadros {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  /* Los combos usan la MISMA grilla de 2 columnas que el resto de la sección:
+     con un combo ocupa la mitad; al agregar otro se ponen dos al lado. */
 
   /* Las cards dejan de ser "filas con línea abajo" y se ven como
      tarjetas con borde redondeado, que queda mejor en grilla. */
