@@ -56,28 +56,28 @@
           "id": "variedad",
           "nombre": "Variedad",
           "descripcion": "4 de cada uno · las 5 variedades",
-          "imagen": "img/productos/box.jpg"
+          "imagen": "img/productos/box_mixto.jpeg"
         },
         {
           "id": "mixto",
           "nombre": "Mixto",
           "descripcion": "10 y 10 · elegís 2 sabores",
           "cantidadSabores": 2,
-          "imagen": "img/productos/rogelitos.jpg"
+          "imagen": "img/productos/box_miti_miti.jpg"
         },
         {
           "id": "unsabor",
           "nombre": "Un solo sabor",
           "descripcion": "20 del sabor que elijas",
           "cantidadSabores": 1,
-          "imagen": "img/productos/box.jpg"
+          "imagen": "img/productos/box_unico.jpeg"
         },
         {
           "id": "personalizado",
           "nombre": "Personalizado",
           "descripcion": "lo armás como quieras · a definir por WhatsApp",
           "definirDespues": true,
-          "imagen": "img/productos/box.jpg"
+          "imagen": "img/productos/box_mixto.jpeg"
         }
       ],
       "productos": [
