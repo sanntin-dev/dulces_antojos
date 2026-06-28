@@ -70,7 +70,7 @@
           "nombre": "Un solo sabor",
           "descripcion": "20 del sabor que elijas",
           "cantidadSabores": 1,
-          "imagen": "img/productos/box_unico.jpeg"
+          "imagen": "img/productos/box_unico.jpg"
         },
         {
           "id": "personalizado",
