@@ -16,8 +16,11 @@ cuentas de usuario: el pedido se concreta por WhatsApp.
 - Barra de categorías que se queda fija arriba y se va resaltando según lo que mirás.
 - Carrito con botones + / – para elegir cantidades.
 - **Tocá la foto de un producto** para verla en grande.
-- **Bocaditos por box:** se venden en boxes de 20 unidades a elección. Una barrita
-  muestra cuánto falta para completar el box y no deja enviar el pedido si no cierra.
+- **Bocaditos por box:** una vitrina muestra los sabores y, abajo, el cliente arma
+  su box de 20 eligiendo un tipo (Variedad, Mixto, Un solo sabor o Personalizado).
+  Puede agregar varios boxes.
+- **Combos:** paquetes de precio fijo que se arman eligiendo sus partes (ej. 1 tarta
+  + 2 boxes), todas tomadas del mismo catálogo.
 - Botón final que abre WhatsApp con el resumen del pedido y el total ya escritos.
 
 ---
@@ -83,10 +86,11 @@ Si una foto todavía no existe, la app muestra un ícono de torta de relleno (no
 
 ---
 
-## 📦 Opciones de la categoría (nota y boxes)
+## 📦 Bocaditos por box (`tiposBox`)
 
-Además de su lista de productos, **cada categoría** puede tener estos campos
-opcionales. Van al lado de `"id"` y `"nombre"`, antes de `"productos"`:
+Bocaditos es una categoría especial: sus productos son los **sabores**, y el cliente
+no los compra de a uno, sino que **arma un box** de 20. Eso se configura con estos
+campos al lado de `"id"` y `"nombre"`, antes de `"productos"`:
 
 ```json
 {
@@ -94,24 +98,73 @@ opcionales. Van al lado de `"id"` y `"nombre"`, antes de `"productos"`:
   "nombre": "Bocaditos",
   "nota": "Se arman en boxes de 20 unidades a elección",
   "unidadesPorBox": 20,
-  "cantidadPorClick": 5,
+  "tiposBox": [
+    { "id": "variedad", "nombre": "Variedad", "descripcion": "4 de cada uno · las 5 variedades", "imagen": "img/productos/box.jpg" },
+    { "id": "mixto", "nombre": "Mixto", "descripcion": "10 y 10 · elegís 2 sabores", "cantidadSabores": 2, "imagen": "img/productos/box.jpg" },
+    { "id": "unsabor", "nombre": "Un solo sabor", "descripcion": "20 del sabor que elijas", "cantidadSabores": 1, "imagen": "img/productos/box.jpg" },
+    { "id": "personalizado", "nombre": "Personalizado", "descripcion": "lo armás como quieras · a definir por WhatsApp", "definirDespues": true, "imagen": "img/productos/box.jpg" }
+  ],
   "productos": [ ... ]
 }
 ```
 
-- **`nota`**: un texto que aparece debajo del título de la categoría (un aclarador).
-  Si no la querés, sacá la línea.
-- **`unidadesPorBox`**: si está, esa categoría se vende **en boxes** de ese tamaño.
-  La app suma todas las unidades de la categoría y exige que el total cierre en un
-  múltiplo (ej. con `20`: 20, 40, 60…). Mientras no cierre, muestra cuánto falta y no
-  deja enviar el pedido. En el carrito y en el WhatsApp los junta en una línea de box.
-  Si una categoría **no** tiene este campo, se vende suelta (como tartas o galletas).
-- **`cantidadPorClick`**: de a cuánto suma/resta cada botón + / –. Por defecto es `1`.
-  En bocaditos está en `5` para que se pidan de a 5.
+- **`nota`**: texto que aparece debajo del título de la categoría (sirve en cualquier categoría).
+- **`unidadesPorBox`**: cuántas unidades tiene un box (ej. `20`).
+- **`tiposBox`**: la lista de **tipos de box** que el cliente puede armar. Cada uno tiene:
+  - **`id`** (único), **`nombre`** y **`descripcion`** (el textito de abajo).
+  - **`imagen`**: la foto que se muestra para ese tipo de box.
+  - **`cantidadSabores`** (opcional): si está, el cliente elige esa cantidad de sabores
+    con desplegables (Mixto = `2`, Un solo sabor = `1`). Si **no** está, el box lleva
+    **todos** los sabores en partes iguales (Variedad).
+  - **`definirDespues`** (opcional): si está en `true`, el box no tiene precio ni armado
+    fijo — se cotiza por WhatsApp (Personalizado).
 
-> Para cambiar el tamaño del box (ej. 20 → 24) o el salto (ej. 5 → 6), editás esos
-> dos números acá. No hace falta tocar el código. El precio del box es siempre la
-> **suma de lo elegido** (se respetan los precios por sabor).
+El **precio de cada box** es la suma de los sabores que lleva (el Personalizado va "a definir").
+
+---
+
+## 🎁 Combos (`componentes`)
+
+Un combo es un producto con **precio fijo** que se arma eligiendo sus partes. Se escribe
+como un producto normal (en la categoría `combos`) pero con un campo `componentes`:
+
+```json
+{
+  "id": "combo-cumple",
+  "nombre": "Combo Cumpleaños",
+  "descripcion": "Tarta de 24cm a elección + 2 bandejas de bocaditos a elección (40 en total)",
+  "precio": 60000,
+  "imagen": "img/productos/combo-cumple.jpg",
+  "activo": 1,
+  "componentes": [
+    { "elegir": "producto", "categoria": "tartas",    "cantidad": 1, "label": "Elegí tu tarta" },
+    { "elegir": "box",      "categoria": "bocaditos", "cantidad": 2, "label": "Box" }
+  ]
+}
+```
+
+Cuando el cliente toca **"Armar combo"**, la app le pide elegir cada parte. Las opciones
+**salen del catálogo en vivo** (no se copian): si agregás una tarta o un sabor, aparece
+solo. El precio es siempre el `precio` del combo, sin importar qué elija.
+
+Cada componente tiene:
+
+| Campo       | Qué hace |
+|-------------|----------|
+| `elegir`    | `"producto"` = elegir un ítem de la categoría (desplegable). `"box"` = armar un box (tipo + sabores; solo sirve para categorías con `tiposBox`, como bocaditos). |
+| `categoria` | de qué categoría salen las opciones (ej. `tartas`, `galletas`, `bocaditos`). |
+| `cantidad`  | cuántos elegir (genera esa cantidad de selectores). |
+| `label`     | el título del paso. |
+
+**Ejemplos** de componentes:
+
+- `{ "elegir": "producto", "categoria": "galletas", "cantidad": 2, "label": "Elegí tus galletas" }`
+  → el cliente elige 2 galletas.
+- `{ "elegir": "box", "categoria": "bocaditos", "cantidad": 1, "label": "Box" }`
+  → arma 1 box de bocaditos.
+
+Para un **combo nuevo**, agregás otro producto en la categoría `combos` con su propio
+`componentes`. No hace falta tocar el código.
 
 ---
 

@@ -3,13 +3,14 @@
 
    Cómo está organizado este archivo:
    1. Configuración (se lee de config.json: número de WhatsApp, saludo)
-   2. Estado en memoria (el carrito)
+   2. Estado en memoria (el carrito y los boxes)
    3. Arranque: leer productos.json y dibujar todo
    4. Dibujar chips y secciones de productos
-   5. Carrito: sumar / restar / quitar y refrescar pantalla
-   6. Panel del pedido (abrir / cerrar)
-   7. Enviar por WhatsApp
-   8. Scrollspy (resaltar el chip de la categoría que se está viendo)
+   5. Carrito de productos sueltos (sumar / restar / quitar)
+   6. Armador de boxes de bocaditos (Variedad / Mixto)
+   7. Panel del pedido (abrir / cerrar / dibujar)
+   8. Enviar por WhatsApp
+   9. Scrollspy + visor de fotos + utilidades
 
    Está comentado a propósito para que puedas tocar cosas sueltas
    sin ser programador. Buscá el número de comentario que te interese.
@@ -18,9 +19,8 @@
 /* ---------- 1) CONFIGURACIÓN ---------- */
 
 // La configuración vive en el archivo "config.json", así la podés editar sin
-// tocar este código. Está agrupada por tema (por ahora solo "whatsapp", pero
-// si más adelante sumás otras cosas, agregás otro grupo). Acá solo dejamos
-// valores por defecto, por si el config.json no se pudiera leer.
+// tocar este código. Acá solo dejamos valores por defecto, por si no se pudiera
+// leer el archivo.
 let config = {
   whatsapp: {
     numero: "",
@@ -30,97 +30,94 @@ let config = {
 
 /* ---------- 2) ESTADO EN MEMORIA ---------- */
 
-// El carrito es un objeto simple: { idProducto: cantidad }
+// Productos sueltos (tartas, galletas, etc.): { idProducto: cantidad }
 // Ejemplo: { "rogel": 2, "lemon-pie": 1 }
 // No se guarda en ningún lado: si recargás la página, se vacía.
 let carrito = {};
 
-// Acá guardamos todos los productos en una lista plana para poder buscar
-// cualquiera por su id rápido (nombre, precio, etc.) cuando armamos el pedido.
-// Se llena al cargar el JSON.
+// Boxes de bocaditos ya armados. Cada box es una cosa aparte, con su tipo:
+//   { tipo: "variedad" }                            -> 4 de cada sabor (las 5)
+//   { tipo: "mixto", sabores: ["rogelitos","coco"] } -> 10 y 10 de 2 sabores
+// El total de cada box siempre cierra en 20 (no hace falta validar nada).
+let boxesBocaditos = [];
+
+// Índice plano de todos los productos por id, para buscar nombre/precio rápido.
 let productosPorId = {};
 
-// Reglas por categoría que se leen del JSON (por ahora "bocaditos"):
-//   - unidadesPorBox: tamaño del box. Si está, los productos de esa categoría se
-//     venden en boxes de ese tamaño (ej. 20) y el total tiene que cerrar en un
-//     múltiplo (20, 40, 60…) para poder pedir.
-//   - cantidadPorClick: de a cuánto suma/resta cada botón + / – .
-// Ejemplo: { "bocaditos": { nombre: "Bocaditos", unidadesPorBox: 20, cantidadPorClick: 5 } }
-// Se llena al cargar el catálogo. Una categoría sin estos campos usa los
-// valores por defecto (sin box y de a uno).
-let reglasPorCategoria = {};
+// La categoría de bocaditos (con su config: unidadesPorBox y tiposBox). Se
+// reconoce porque trae "tiposBox" en el JSON. Se llena al cargar el catálogo.
+let categoriaBocaditos = null;
+
+// Índice de categorías por id (para que los combos puedan buscar las opciones
+// de cada categoría en vivo: tartas, bocaditos, etc.). Se llena al cargar.
+let categoriasPorId = {};
+
+// Combos ya armados (cada uno con sus partes elegidas). Ej:
+//   [{ comboId: "combo-cumple", slots: [{elegir, categoria, sel}, ...] }]
+let combosArmados = [];
+
+// Combo que se está armando ahora (borrador), mientras se eligen sus partes.
+let comboDraft = null;
+
+// Sabores elegidos en el armador del box mixto (uno por cada desplegable).
+// Ej: ["rogelitos", null] mientras se está eligiendo el segundo.
+let mixtoSel = [];
+
+// Tipo de box elegido en la galería de cuadrados (ej. "variedad" o "mixto").
+let tipoSel = null;
 
 /* ---------- 3) ARRANQUE ---------- */
 
-// Cuando termina de cargar la página, pedimos el catálogo y lo dibujamos.
 document.addEventListener("DOMContentLoaded", iniciar);
 
 async function iniciar() {
   const estado = document.getElementById("estado");
 
   try {
-    // Primero leemos la configuración (número de WhatsApp, etc.).
-    // Si falla, no rompemos: seguimos con los valores por defecto de arriba.
+    // Configuración (número de WhatsApp, etc.). Si falla, seguimos con los
+    // valores por defecto de arriba.
     try {
       const respConfig = await fetch("datos/config.json");
       if (respConfig.ok) {
-        // Mezclamos lo que venga del archivo sobre los valores por defecto.
         config = Object.assign(config, await respConfig.json());
       }
     } catch (e) {
       console.warn("No se pudo leer config.json, uso valores por defecto.", e);
     }
 
-    // Completamos los íconos de redes (WhatsApp / Instagram) con lo del config.
     configurarRedes();
 
-    // Leemos el archivo de productos.
     const respuesta = await fetch("datos/productos.json");
-
-    // Si el archivo no se encontró o el servidor respondió mal, avisamos.
-    if (!respuesta.ok) {
-      throw new Error("No se pudo leer productos.json");
-    }
+    if (!respuesta.ok) throw new Error("No se pudo leer productos.json");
 
     const datos = await respuesta.json();
-
-    // Validación mínima: que venga la lista de categorías y que no esté vacía.
     if (!datos.categorias || datos.categorias.length === 0) {
       throw new Error("El catálogo está vacío");
     }
 
-    // Todo OK: dibujamos chips y secciones.
     dibujarCatalogo(datos.categorias);
-
-    // Conectamos los botones del panel del pedido (cerrar, overlay, WhatsApp).
     conectarPanel();
   } catch (error) {
-    // Cualquier problema (sin internet, JSON roto, archivo vacío) cae acá.
     console.error(error);
     estado.textContent = "No se pudo cargar el catálogo.";
   }
 }
 
 // Completa los íconos de redes con los datos del config.
-// - WhatsApp: usa el mismo número del pedido (config.whatsapp.numero).
-// - Instagram: usa el link de config.redes.instagram.
-// Si alguno no tiene dato cargado, escondemos ese ícono.
 function configurarRedes() {
   const whatsapp = document.getElementById("redWhatsapp");
   const instagram = document.getElementById("redInstagram");
 
-  // WhatsApp: arma el link wa.me con el número configurado.
   if (config.whatsapp && config.whatsapp.numero) {
     whatsapp.href = "https://wa.me/" + config.whatsapp.numero;
   } else {
-    whatsapp.hidden = true; // sin número, no mostramos el ícono
+    whatsapp.hidden = true;
   }
 
-  // Instagram: usa el link tal cual del config.
   if (config.redes && config.redes.instagram) {
     instagram.href = config.redes.instagram;
   } else {
-    instagram.hidden = true; // sin link, no mostramos el ícono
+    instagram.hidden = true;
   }
 }
 
@@ -129,43 +126,28 @@ function configurarRedes() {
 function dibujarCatalogo(categorias) {
   const chipsCont = document.getElementById("chips");
   const catalogo = document.getElementById("catalogo");
-
-  // Limpiamos el mensaje de "Cargando…".
   catalogo.innerHTML = "";
 
-  // Recorremos cada categoría en el MISMO orden en que viene en el JSON.
   categorias.forEach(function (categoria) {
-    // Guardamos las reglas de esta categoría (tamaño de box y cantidad por click).
-    // Si el JSON no las trae, quedan en sus valores por defecto: sin box (0)
-    // y de a uno (1).
-    reglasPorCategoria[categoria.id] = {
-      nombre: categoria.nombre,
-      unidadesPorBox: categoria.unidadesPorBox || 0,
-      cantidadPorClick: categoria.cantidadPorClick || 1,
-    };
+    // Guardamos la categoría en el índice (la usan los combos para buscar sus
+    // opciones: tartas, bocaditos, etc.).
+    categoriasPorId[categoria.id] = categoria;
 
-    // Nos quedamos solo con los productos ACTIVOS.
-    // Un producto se considera activo si "activo" es 1 (o si no tiene el campo,
-    // así no se rompe nada si te olvidás de ponérselo a alguno).
-    const activos = categoria.productos.filter(function (producto) {
-      return producto.activo !== 0;
+    // Solo productos activos (activo === 1, o sin el campo).
+    const activos = categoria.productos.filter(function (p) {
+      return p.activo !== 0;
     });
-
-    // Si la categoría no tiene ningún producto activo, no dibujamos nada
-    // (ni el chip ni la sección), para que no quede una categoría vacía.
-    if (activos.length === 0) {
-      return;
-    }
+    if (activos.length === 0) return;
 
     // --- Chip de la categoría ---
     const chip = document.createElement("button");
     chip.className = "chip";
     chip.textContent = categoria.nombre;
-    // Guardamos a qué sección apunta para el scroll suave.
     chip.dataset.target = "seccion-" + categoria.id;
     chip.addEventListener("click", function () {
-      const seccion = document.getElementById("seccion-" + categoria.id);
-      seccion.scrollIntoView({ behavior: "smooth", block: "start" });
+      document
+        .getElementById("seccion-" + categoria.id)
+        .scrollIntoView({ behavior: "smooth", block: "start" });
     });
     chipsCont.appendChild(chip);
 
@@ -174,13 +156,11 @@ function dibujarCatalogo(categorias) {
     seccion.className = "seccion";
     seccion.id = "seccion-" + categoria.id;
 
-    // Título.
     const titulo = document.createElement("h2");
     titulo.className = "seccion__titulo";
     titulo.textContent = categoria.nombre;
     seccion.appendChild(titulo);
 
-    // Nota de la categoría (si tiene), por ejemplo "Se arman en boxes de 20".
     if (categoria.nota) {
       const nota = document.createElement("p");
       nota.className = "seccion__nota";
@@ -188,40 +168,34 @@ function dibujarCatalogo(categorias) {
       seccion.appendChild(nota);
     }
 
-    // Si la categoría se vende en boxes (ej. bocaditos), agregamos arriba una
-    // barrita de progreso que muestra cuánto falta para completar el box.
-    if (reglasPorCategoria[categoria.id].unidadesPorBox) {
-      seccion.appendChild(crearProgresoBox(categoria.id));
-    }
-
-    // Productos ACTIVOS de la categoría.
-    activos.forEach(function (producto) {
-      // Estampamos a qué categoría pertenece (para el box y la cantidad por
-      // click), y lo guardamos en el índice plano para usarlo después.
-      producto.categoria = categoria.id;
-      productosPorId[producto.id] = producto;
-      // Creamos y agregamos la card.
-      seccion.appendChild(crearCard(producto));
+    // Indexamos los productos (estampando su categoría) para usarlos después.
+    activos.forEach(function (p) {
+      p.categoria = categoria.id;
+      productosPorId[p.id] = p;
     });
+
+    // ¿Es la categoría de bocaditos? (trae "tiposBox"). En ese caso dibujamos
+    // el armador de boxes en vez de las tarjetas de producto sueltas.
+    if (categoria.tiposBox) {
+      categoriaBocaditos = categoria;
+      dibujarArmadorBoxes(seccion);
+    } else {
+      activos.forEach(function (p) {
+        // Un producto con "componentes" es un combo: se arma eligiendo sus
+        // partes (ej. 1 tarta + 2 boxes), no se agrega de a uno.
+        seccion.appendChild(p.componentes ? crearCardCombo(p) : crearCard(p));
+      });
+    }
 
     catalogo.appendChild(seccion);
   });
 
-  // Una vez que existen las secciones, activamos el scrollspy.
   activarScrollspy();
-
-  // Estado inicial de las barras de progreso de boxes (arrancan en 0).
-  refrescarProgresos();
-
-  // Medimos la altura de los chips para que la barra del box se pegue justo
-  // debajo (y la recalculamos si cambia el tamaño de la ventana).
   ajustarAlturaChips();
   window.addEventListener("resize", ajustarAlturaChips);
 }
 
-// Guarda la altura real de la barra de chips en la variable CSS --altura-chips.
-// La usa el "top" de la barra sticky del box (styles.css), así se pega justo
-// debajo de los chips sin depender de un número fijo.
+// Guarda la altura real de la barra de chips en --altura-chips (la usa el CSS).
 function ajustarAlturaChips() {
   const chips = document.getElementById("chips");
   if (!chips) return;
@@ -231,29 +205,24 @@ function ajustarAlturaChips() {
   );
 }
 
-// Crea la card horizontal de un producto.
+// Crea la card horizontal de un producto suelto (tartas, galletas, etc.).
 function crearCard(producto) {
   const card = document.createElement("div");
   card.className = "card";
 
-  // --- Foto (con placeholder si todavía no existe el archivo) ---
   const img = document.createElement("img");
   img.className = "card__foto";
   img.src = producto.imagen;
   img.alt = producto.nombre;
   img.loading = "lazy";
-  // Si la imagen no carga, la reemplazamos por un cuadrito lavanda con
-  // un ícono de torta, así nunca se ve la imagen rota.
   img.onerror = function () {
     img.replaceWith(crearPlaceholder());
   };
-  // Al tocar la foto, se abre en grande (visor). El placeholder no abre nada.
   img.addEventListener("click", function () {
     abrirVisor(producto.imagen, producto.nombre);
   });
   card.appendChild(img);
 
-  // --- Info a la derecha ---
   const info = document.createElement("div");
   info.className = "card__info";
 
@@ -267,7 +236,6 @@ function crearCard(producto) {
   desc.textContent = producto.descripcion;
   info.appendChild(desc);
 
-  // Fila con precio + control de cantidad.
   const fila = document.createElement("div");
   fila.className = "card__fila";
 
@@ -276,7 +244,6 @@ function crearCard(producto) {
   precio.textContent = formatearPrecio(producto.precio);
   fila.appendChild(precio);
 
-  // El control de cantidad se dibuja según lo que haya en el carrito.
   fila.appendChild(crearControlCantidad(producto.id));
 
   info.appendChild(fila);
@@ -296,13 +263,15 @@ function crearPlaceholder() {
   return div;
 }
 
-// El control de cantidad cambia de forma:
-// - cantidad 0  -> solo un botón "+"
-// - cantidad >0 -> botón "–", número, botón "+"
+/* ---------- 5) CARRITO DE PRODUCTOS SUELTOS ---------- */
+
+// Control de cantidad de un producto suelto:
+// - cantidad 0  -> solo "+"
+// - cantidad >0 -> "–", número, "+"  (de a uno)
 function crearControlCantidad(idProducto) {
   const cant = document.createElement("div");
   cant.className = "cant";
-  cant.dataset.id = idProducto; // para encontrarlo y redibujarlo después
+  cant.dataset.id = idProducto;
 
   const cantidad = carrito[idProducto] || 0;
 
@@ -334,37 +303,20 @@ function crearControlCantidad(idProducto) {
   return cant;
 }
 
-/* ---------- 5) CARRITO ---------- */
-
-// De a cuánto suma/resta cada click para un producto, según su categoría.
-// Por defecto 1; los bocaditos, por ejemplo, van de a 5 (config en productos.json).
-function cantidadPorClickDe(idProducto) {
-  const producto = productosPorId[idProducto];
-  const regla = producto && reglasPorCategoria[producto.categoria];
-  return (regla && regla.cantidadPorClick) || 1;
-}
-
 function sumar(idProducto) {
-  carrito[idProducto] = (carrito[idProducto] || 0) + cantidadPorClickDe(idProducto);
+  carrito[idProducto] = (carrito[idProducto] || 0) + 1;
   refrescarControl(idProducto);
   refrescarBurbuja();
-  refrescarProgresos();
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
 }
 
 function restar(idProducto) {
   if (!carrito[idProducto]) return;
-  carrito[idProducto] -= cantidadPorClickDe(idProducto);
-  // Si llega a 0 (o menos), lo sacamos del carrito para mantenerlo limpio.
-  if (carrito[idProducto] <= 0) {
-    delete carrito[idProducto];
-  }
+  carrito[idProducto] -= 1;
+  if (carrito[idProducto] <= 0) delete carrito[idProducto];
   refrescarControl(idProducto);
   refrescarBurbuja();
-  refrescarProgresos();
-  // Si el panel del pedido está abierto, lo redibujamos también.
-  if (!document.getElementById("sheet").hidden) {
-    dibujarPedido();
-  }
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
 }
 
 // Quita un producto entero (desde el panel del pedido).
@@ -372,192 +324,1018 @@ function quitar(idProducto) {
   delete carrito[idProducto];
   refrescarControl(idProducto);
   refrescarBurbuja();
-  refrescarProgresos();
-  dibujarPedido();
-}
-
-// Quita TODOS los productos de una categoría (ej. vaciar los bocaditos desde la
-// línea de box del pedido).
-function quitarCategoria(catId) {
-  for (const id in carrito) {
-    if (productosPorId[id].categoria === catId) {
-      delete carrito[id];
-      refrescarControl(id);
-    }
-  }
-  refrescarBurbuja();
-  refrescarProgresos();
   dibujarPedido();
 }
 
 // Vuelve a dibujar SOLO el control de cantidad de un producto en su card.
 function refrescarControl(idProducto) {
   const viejo = document.querySelector('.cant[data-id="' + idProducto + '"]');
-  if (viejo) {
-    viejo.replaceWith(crearControlCantidad(idProducto));
+  if (viejo) viejo.replaceWith(crearControlCantidad(idProducto));
+}
+
+/* ---------- 6) ARMADOR DE BOXES DE BOCADITOS ---------- */
+
+// Tamaño del box (ej. 20).
+function unidadesPorBox() {
+  return (categoriaBocaditos && categoriaBocaditos.unidadesPorBox) || 20;
+}
+
+// Sabores activos de la categoría de bocaditos.
+function saboresBocaditos() {
+  if (!categoriaBocaditos) return [];
+  return categoriaBocaditos.productos.filter(function (p) {
+    return p.activo !== 0;
+  });
+}
+
+// Config de un tipo de box (variedad / mixto) por su id.
+function tipoPorId(idTipo) {
+  return categoriaBocaditos.tiposBox.find(function (t) {
+    return t.id === idTipo;
+  });
+}
+
+// ¿Es un box "a definir" (personalizado, sin precio fijo)? Se cotiza después
+// por WhatsApp.
+function esADefinir(box) {
+  const t = tipoPorId(box.tipo);
+  return !!(t && t.definirDespues);
+}
+
+// Devuelve el contenido de un box: lista de { id, nombre, precio, cantidad }.
+//  - Con "sabores" (mixto, un solo sabor): reparte el total entre esos sabores
+//    (ej. 20 / 2 = 10 y 10; o 20 / 1 = 20).
+//  - Sin "sabores" (variedad): reparte entre TODOS los sabores (ej. 20 / 5 = 4).
+//  - Personalizado (a definir): no tiene contenido fijo, devuelve vacío.
+function contenidoDeBox(box) {
+  if (esADefinir(box)) return [];
+
+  const total = unidadesPorBox();
+  const ids = box.sabores
+    ? box.sabores.slice()
+    : saboresBocaditos().map(function (s) {
+        return s.id;
+      });
+
+  const por = Math.floor(total / ids.length);
+  return ids.map(function (id, i) {
+    const p = productosPorId[id];
+    // Si el total no se reparte exacto, el resto se suma al primer sabor.
+    const extra = i === 0 ? total - por * ids.length : 0;
+    return {
+      id: id,
+      nombre: p.nombre,
+      precio: p.precio,
+      cantidad: por + extra,
+    };
+  });
+}
+
+// Precio total de un box (0 si es a definir, así no suma al total del pedido).
+function precioDeBox(box) {
+  if (esADefinir(box)) return 0;
+  return contenidoDeBox(box).reduce(function (acc, it) {
+    return acc + it.precio * it.cantidad;
+  }, 0);
+}
+
+// Precio del box para mostrar: "A definir" si es personalizado, o el precio.
+function precioTextoDeBox(box) {
+  return esADefinir(box) ? "A definir" : formatearPrecio(precioDeBox(box));
+}
+
+// Nombre del tipo de un box ("Variedad" / "Mixto").
+function nombreTipoDeBox(box) {
+  const t = tipoPorId(box.tipo);
+  return t ? t.nombre : box.tipo;
+}
+
+// Dibuja el armador completo dentro de la sección de bocaditos:
+//   1. la galería de tipos de box en cuadrados grandes (arriba),
+//   2. la configuración del tipo elegido (precio + Agregar, y los sabores si es
+//      mixto),
+//   3. la lista de boxes ya agregados (abajo).
+function dibujarArmadorBoxes(seccion) {
+  mixtoSel = [];
+  tipoSel = categoriaBocaditos.tiposBox[0].id; // arranca con el primero elegido
+
+  // 1. Vitrina: las fotos de los sabores en grande, para ver "lo que hay".
+  const vitrina = document.createElement("div");
+  vitrina.className = "vitrina";
+  vitrina.id = "vitrina";
+  seccion.appendChild(vitrina);
+  dibujarVitrina(vitrina);
+
+  // 2. Subtítulo + galería de tipos de box.
+  const sub = document.createElement("h3");
+  sub.className = "armador__sub";
+  sub.textContent = "Armá tu box";
+  seccion.appendChild(sub);
+
+  const cuadros = document.createElement("div");
+  cuadros.className = "box-cuadros";
+  cuadros.id = "box-cuadros";
+  seccion.appendChild(cuadros);
+
+  const lista = document.createElement("div");
+  lista.className = "boxes-lista";
+  lista.id = "boxes-lista";
+  seccion.appendChild(lista);
+
+  // El panel de configuración se crea e inserta DENTRO de la grilla, justo
+  // debajo de la fila del cuadrado elegido (lo arma dibujarCuadros).
+  dibujarCuadros(cuadros);
+  refrescarBoxesLista(lista);
+
+  // Al cruzar el breakpoint (celular <-> tablet/desktop) cambia la cantidad de
+  // columnas, así que redibujamos para reubicar el panel debajo de la fila.
+  window
+    .matchMedia("(min-width: 768px)")
+    .addEventListener("change", function () {
+      dibujarCuadros();
+    });
+}
+
+// (Re)dibuja la vitrina de sabores: una grilla con las fotos en grande y el
+// nombre debajo. Al tocar una, se abre en grande (visor). Es solo para mostrar;
+// los sabores se eligen después al armar el box.
+function dibujarVitrina(cont) {
+  cont = cont || document.getElementById("vitrina");
+  if (!cont) return;
+  cont.innerHTML = "";
+  saboresBocaditos().forEach(function (s) {
+    const item = document.createElement("div");
+    item.className = "vitrina__item";
+
+    const img = document.createElement("img");
+    img.className = "vitrina__foto";
+    img.src = s.imagen;
+    img.alt = s.nombre;
+    img.loading = "lazy";
+    img.onerror = function () {
+      const ph = document.createElement("div");
+      ph.className = "vitrina__foto vitrina__foto--ph";
+      img.replaceWith(ph);
+    };
+    img.addEventListener("click", function () {
+      abrirVisor(s.imagen, s.nombre);
+    });
+    item.appendChild(img);
+
+    const nombre = document.createElement("span");
+    nombre.className = "vitrina__nombre";
+    nombre.textContent = s.nombre;
+    item.appendChild(nombre);
+
+    cont.appendChild(item);
+  });
+}
+
+// (Re)dibuja la galería de tipos de box en cuadrados, e inserta el panel de
+// configuración (precio + Agregar, y sabores si hace falta) justo debajo de la
+// fila del cuadrado elegido. La grilla es de 2 columnas.
+function dibujarCuadros(cont) {
+  cont = cont || document.getElementById("box-cuadros");
+  if (!cont) return;
+  cont.innerHTML = "";
+
+  const tipos = categoriaBocaditos.tiposBox;
+  // En pantalla ancha los cuadrados van en una sola fila (4 columnas); en
+  // celular, de a 2. Tiene que coincidir con el CSS (@media min-width 768).
+  const columnas = window.matchMedia("(min-width: 768px)").matches ? 4 : 2;
+  const elegido = Math.max(
+    0,
+    tipos.findIndex(function (t) {
+      return t.id === tipoSel;
+    }),
+  );
+  // Cantidad de cuadrados que van ANTES del panel (hasta cerrar la fila del
+  // elegido). Ej. con 2 columnas: si elegís el 1° o 2°, el panel va tras el 2°.
+  const cuadrosAntes = (Math.floor(elegido / columnas) + 1) * columnas;
+
+  const config = document.createElement("div");
+  config.className = "box-config";
+  config.id = "box-config";
+
+  tipos.forEach(function (tipo, i) {
+    cont.appendChild(crearCuadroTipo(tipo));
+    if (i + 1 === cuadrosAntes) cont.appendChild(config);
+  });
+  // Si el elegido está en la última fila (incompleta), el panel todavía no se
+  // insertó: va al final.
+  if (!config.parentElement) cont.appendChild(config);
+
+  dibujarConfig(config);
+}
+
+// Un cuadrado grande de la galería: foto (collage), nombre y descripción.
+// Al tocarlo, queda elegido y abajo aparece su configuración.
+function crearCuadroTipo(tipo) {
+  const cuadro = document.createElement("button");
+  cuadro.type = "button";
+  cuadro.className =
+    "box-cuadro" + (tipo.id === tipoSel ? " box-cuadro--on" : "");
+
+  cuadro.appendChild(crearFotoBox(tipo));
+
+  // Globito "+" para que se entienda que al tocar se agrega un box de ese tipo.
+  const mas = document.createElement("span");
+  mas.className = "box-cuadro__mas";
+  mas.textContent = "+";
+  mas.setAttribute("aria-hidden", "true");
+  cuadro.appendChild(mas);
+
+  const cap = document.createElement("div");
+  cap.className = "box-cuadro__cap";
+  const nombre = document.createElement("span");
+  nombre.className = "box-cuadro__nombre";
+  nombre.textContent = "Box " + tipo.nombre;
+  cap.appendChild(nombre);
+  const desc = document.createElement("span");
+  desc.className = "box-cuadro__desc";
+  desc.textContent = tipo.descripcion;
+  cap.appendChild(desc);
+  cuadro.appendChild(cap);
+
+  cuadro.addEventListener("click", function () {
+    tipoSel = tipo.id;
+    mixtoSel = []; // al cambiar de tipo, arrancamos la elección de cero
+    dibujarCuadros();
+    dibujarConfig();
+  });
+
+  return cuadro;
+}
+
+// Imagen del cuadrado del tipo de box. Por ahora todos comparten una sola foto
+// ("imagenBox" de la categoría). Cada tipo puede tener la suya propia más
+// adelante con "imagen". Si ninguna existe, caemos a la del primer sabor; y si
+// esa tampoco está, mostramos el placeholder lavanda.
+function crearFotoBox(tipo) {
+  const sabores = saboresBocaditos();
+  const respaldo = (sabores[0] && sabores[0].imagen) || "";
+  const fotoBox = tipo.imagen || categoriaBocaditos.imagenBox || respaldo;
+
+  const wrap = document.createElement("div");
+  wrap.className = "box-cuadro__foto";
+
+  const img = document.createElement("img");
+  img.src = fotoBox;
+  img.alt = "";
+  img.loading = "lazy";
+  img.onerror = function () {
+    // Primero probamos con la foto de respaldo (la del primer sabor).
+    if (
+      img.dataset.respaldo !== "1" &&
+      respaldo &&
+      img.src.indexOf(respaldo) === -1
+    ) {
+      img.dataset.respaldo = "1";
+      img.src = respaldo;
+      return;
+    }
+    // Si tampoco carga, dejamos el cuadro lavanda.
+    wrap.classList.add("box-cuadro__foto--ph");
+    img.remove();
+  };
+  wrap.appendChild(img);
+  return wrap;
+}
+
+// (Re)dibuja la configuración del tipo de box elegido (debajo de la galería).
+function dibujarConfig(cont) {
+  cont = cont || document.getElementById("box-config");
+  if (!cont) return;
+  cont.innerHTML = "";
+  cont.appendChild(crearConfigTipo(tipoPorId(tipoSel)));
+}
+
+// Configuración del tipo elegido: si es mixto, los desplegables de sabores;
+// siempre, el precio del box y el botón Agregar.
+function crearConfigTipo(tipo) {
+  const panel = document.createElement("div");
+  panel.className = "box-config__panel";
+
+  const eligeSabores = !!tipo.cantidadSabores;
+  const aDefinir = !!tipo.definirDespues;
+
+  if (eligeSabores) {
+    // Aseguramos que mixtoSel tenga un lugar por cada sabor a elegir.
+    while (mixtoSel.length < tipo.cantidadSabores) mixtoSel.push(null);
+
+    const label = document.createElement("p");
+    label.className = "box-config__label";
+    label.textContent =
+      "Elegí " +
+      (tipo.cantidadSabores === 1
+        ? "1 sabor"
+        : tipo.cantidadSabores + " sabores");
+    panel.appendChild(label);
+
+    const picker = document.createElement("div");
+    picker.className = "box-tipo__picker";
+    for (let i = 0; i < tipo.cantidadSabores; i++) {
+      picker.appendChild(crearDropdownSabor(i));
+    }
+    panel.appendChild(picker);
+  } else if (aDefinir) {
+    // Personalizado: no se elige nada acá, se charla por WhatsApp.
+    const nota = document.createElement("p");
+    nota.className = "box-config__nota";
+    nota.textContent =
+      "El precio y el armado los definimos por WhatsApp cuando hagas el pedido.";
+    panel.appendChild(nota);
+  }
+
+  // Pie: precio del box + botón Agregar.
+  const pie = document.createElement("div");
+  pie.className = "box-tipo__pie";
+
+  // El box queda listo para agregar si: es a definir, o no elige sabores
+  // (variedad), o ya eligió todos los sabores.
+  const completo = aDefinir || !eligeSabores || mixtoCompleto(tipo);
+
+  const precio = document.createElement("span");
+  precio.className = "box-tipo__precio";
+  if (aDefinir) {
+    precio.textContent = "A definir";
+  } else if (completo) {
+    precio.textContent = formatearPrecio(precioDeBox(boxDeTipo(tipo)));
+  } else {
+    precio.textContent = "";
+  }
+  pie.appendChild(precio);
+
+  const btn = document.createElement("button");
+  btn.className = "box-agregar";
+  btn.textContent = "Agregar box " + tipo.nombre.toLowerCase();
+  btn.disabled = !completo;
+  btn.addEventListener("click", function () {
+    agregarBox(boxDeTipo(tipo));
+  });
+  pie.appendChild(btn);
+
+  panel.appendChild(pie);
+  return panel;
+}
+
+// Arma el objeto box a partir de un tipo (usa mixtoSel para el mixto).
+function boxDeTipo(tipo) {
+  if (tipo.cantidadSabores) {
+    return { tipo: tipo.id, sabores: mixtoSel.slice(0, tipo.cantidadSabores) };
+  }
+  return { tipo: tipo.id };
+}
+
+// ¿Ya se eligieron todos los sabores del mixto?
+function mixtoCompleto(tipo) {
+  for (let i = 0; i < tipo.cantidadSabores; i++) {
+    if (!mixtoSel[i]) return false;
+  }
+  return true;
+}
+
+// Un desplegable (con miniatura) para elegir el sabor del lugar "i" del mixto.
+function crearDropdownSabor(i) {
+  const dd = document.createElement("div");
+  dd.className = "dd";
+
+  const elegido = mixtoSel[i] ? productosPorId[mixtoSel[i]] : null;
+
+  // Botón que muestra el sabor elegido (o el placeholder) y abre el menú.
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "dd__toggle";
+  if (elegido) {
+    toggle.appendChild(crearThumb(elegido));
+    const txt = document.createElement("span");
+    txt.className = "dd__txt";
+    txt.textContent = elegido.nombre;
+    toggle.appendChild(txt);
+  } else {
+    const txt = document.createElement("span");
+    txt.className = "dd__txt dd__txt--placeholder";
+    txt.textContent = "Elegí un sabor…";
+    toggle.appendChild(txt);
+  }
+  const chev = document.createElement("span");
+  chev.className = "dd__chev";
+  chev.textContent = "▾";
+  toggle.appendChild(chev);
+
+  toggle.addEventListener("click", function (e) {
+    e.stopPropagation();
+    // Cerramos cualquier otro desplegable abierto.
+    document.querySelectorAll(".dd--abierto").forEach(function (otro) {
+      if (otro !== dd) otro.classList.remove("dd--abierto");
+    });
+    dd.classList.toggle("dd--abierto");
+  });
+  dd.appendChild(toggle);
+
+  // Menú con todos los sabores (sacando los ya elegidos en OTRO desplegable).
+  const menu = document.createElement("div");
+  menu.className = "dd__menu";
+  saboresBocaditos().forEach(function (s) {
+    const usadoEnOtro = mixtoSel.some(function (sel, j) {
+      return j !== i && sel === s.id;
+    });
+    if (usadoEnOtro) return;
+
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "dd__opt";
+    opt.appendChild(crearThumb(s));
+    const txt = document.createElement("span");
+    txt.className = "dd__txt";
+    txt.textContent = s.nombre;
+    opt.appendChild(txt);
+    opt.addEventListener("click", function () {
+      mixtoSel[i] = s.id;
+      dibujarConfig();
+    });
+    menu.appendChild(opt);
+  });
+  dd.appendChild(menu);
+
+  return dd;
+}
+
+// Miniatura cuadrada de un sabor (con placeholder si falta la foto).
+function crearThumb(producto) {
+  const img = document.createElement("img");
+  img.className = "thumb";
+  img.src = producto.imagen;
+  img.alt = producto.nombre;
+  img.loading = "lazy";
+  img.onerror = function () {
+    const ph = document.createElement("div");
+    ph.className = "thumb thumb--ph";
+    img.replaceWith(ph);
+  };
+  return img;
+}
+
+// Agrega un box al pedido y refresca todo.
+function agregarBox(box) {
+  boxesBocaditos.push(box);
+  mixtoSel = [];
+  dibujarCuadros();
+  dibujarConfig();
+  refrescarBoxesLista();
+  refrescarBurbuja();
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
+}
+
+// Quita el box número "indice" de la lista.
+function quitarBox(indice) {
+  boxesBocaditos.splice(indice, 1);
+  refrescarBoxesLista();
+  refrescarBurbuja();
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
+}
+
+// (Re)dibuja la lista de boxes ya agregados, debajo de los paneles de tipo.
+function refrescarBoxesLista(lista) {
+  lista = lista || document.getElementById("boxes-lista");
+  if (!lista) return;
+  lista.innerHTML = "";
+
+  if (boxesBocaditos.length === 0) return;
+
+  const titulo = document.createElement("p");
+  titulo.className = "boxes-lista__titulo";
+  titulo.textContent =
+    boxesBocaditos.length === 1
+      ? "1 box agregado"
+      : boxesBocaditos.length + " boxes agregados";
+  lista.appendChild(titulo);
+
+  boxesBocaditos.forEach(function (box, i) {
+    lista.appendChild(crearBoxAgregado(box, i));
+  });
+}
+
+// Tarjetita de un box ya agregado: tipo, surtido, precio y botón quitar.
+function crearBoxAgregado(box, indice) {
+  const item = document.createElement("div");
+  item.className = "box-item";
+
+  const texto = document.createElement("div");
+  texto.className = "box-item__texto";
+
+  const nombre = document.createElement("div");
+  nombre.className = "box-item__nombre";
+  nombre.textContent =
+    "Box " +
+    (indice + 1) +
+    " · " +
+    nombreTipoDeBox(box) +
+    (esADefinir(box) ? "" : " (" + unidadesPorBox() + "u)");
+  texto.appendChild(nombre);
+
+  const detalle = document.createElement("div");
+  detalle.className = "box-item__detalle";
+  detalle.textContent = esADefinir(box)
+    ? "A definir por WhatsApp"
+    : contenidoDeBox(box)
+        .map(function (it) {
+          return it.cantidad + "x " + it.nombre;
+        })
+        .join(" · ");
+  texto.appendChild(detalle);
+
+  item.appendChild(texto);
+
+  const precio = document.createElement("span");
+  precio.className = "box-item__precio";
+  precio.textContent = precioTextoDeBox(box);
+  item.appendChild(precio);
+
+  const quitarBtn = document.createElement("button");
+  quitarBtn.className = "item__quitar";
+  quitarBtn.textContent = "×";
+  quitarBtn.setAttribute("aria-label", "Quitar box " + (indice + 1));
+  quitarBtn.addEventListener("click", function () {
+    quitarBox(indice);
+  });
+  item.appendChild(quitarBtn);
+
+  return item;
+}
+
+/* ---------- 6b) ARMADOR DE COMBOS ---------- */
+// Un combo (ej. Combo Cumpleaños) tiene precio fijo y se arma eligiendo sus
+// partes, que salen del catálogo en vivo: "componentes" referencia categorías
+// (ej. 1 producto de "tartas" + 2 "box" de "bocaditos"). Nada hardcodeado.
+
+// Productos activos de una categoría (para los pasos del combo).
+function productosDeCategoria(catId) {
+  const cat = categoriasPorId[catId];
+  if (!cat) return [];
+  return cat.productos.filter(function (p) {
+    return p.activo !== 0;
+  });
+}
+
+// Tarjeta de un combo: foto + info + botón "Armar combo", y debajo un panel
+// (oculto) donde se eligen las partes.
+function crearCardCombo(producto) {
+  const cont = document.createElement("div");
+  cont.className = "combo";
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const img = document.createElement("img");
+  img.className = "card__foto";
+  img.src = producto.imagen;
+  img.alt = producto.nombre;
+  img.loading = "lazy";
+  img.onerror = function () {
+    img.replaceWith(crearPlaceholder());
+  };
+  img.addEventListener("click", function () {
+    abrirVisor(producto.imagen, producto.nombre);
+  });
+  card.appendChild(img);
+
+  const info = document.createElement("div");
+  info.className = "card__info";
+
+  const nombre = document.createElement("h3");
+  nombre.className = "card__nombre";
+  nombre.textContent = producto.nombre;
+  info.appendChild(nombre);
+
+  const desc = document.createElement("p");
+  desc.className = "card__desc";
+  desc.textContent = producto.descripcion;
+  info.appendChild(desc);
+
+  const fila = document.createElement("div");
+  fila.className = "card__fila";
+
+  const precio = document.createElement("span");
+  precio.className = "card__precio";
+  precio.textContent = formatearPrecio(producto.precio);
+  fila.appendChild(precio);
+
+  const armar = document.createElement("button");
+  armar.className = "combo__armar";
+  armar.textContent = "Armar combo";
+  armar.addEventListener("click", function () {
+    toggleComboConfig(producto);
+  });
+  fila.appendChild(armar);
+
+  info.appendChild(fila);
+
+  // Contador de combos de este tipo ya agregados al pedido.
+  const cuenta = document.createElement("p");
+  cuenta.className = "combo__cuenta";
+  cuenta.id = "combo-cuenta-" + producto.id;
+  cuenta.hidden = true;
+  info.appendChild(cuenta);
+
+  card.appendChild(info);
+  cont.appendChild(card);
+
+  const config = document.createElement("div");
+  config.className = "combo__config";
+  config.id = "combo-config-" + producto.id;
+  config.hidden = true;
+  cont.appendChild(config);
+
+  return cont;
+}
+
+// Abre/cierra el panel de armado de un combo.
+function toggleComboConfig(producto) {
+  const abierto = comboDraft && comboDraft.comboId === producto.id;
+  if (abierto) {
+    comboDraft = null;
+    dibujarComboConfig(producto);
+  } else {
+    comboDraft = {
+      comboId: producto.id,
+      slots: expandirSlots(producto.componentes),
+    };
+    dibujarComboConfig(producto);
   }
 }
 
-// Actualiza la barra fija de abajo (cantidad + total) y la muestra u oculta.
+// Expande los "componentes" en una lista de lugares a elegir (slots). Ej:
+// [{tarta x1}, {box x2}] -> [tarta, box(1/2), box(2/2)].
+function expandirSlots(componentes) {
+  const slots = [];
+  componentes.forEach(function (c) {
+    const n = c.cantidad || 1;
+    for (let k = 0; k < n; k++) {
+      slots.push({
+        elegir: c.elegir,
+        categoria: c.categoria,
+        label: c.label,
+        indice: k,
+        total: n,
+        sel: null,
+      });
+    }
+  });
+  return slots;
+}
+
+// (Re)dibuja el panel de armado del combo según el borrador (comboDraft).
+function dibujarComboConfig(producto) {
+  const cont = document.getElementById("combo-config-" + producto.id);
+  if (!cont) return;
+  cont.innerHTML = "";
+
+  if (!comboDraft || comboDraft.comboId !== producto.id) {
+    cont.hidden = true;
+    return;
+  }
+  cont.hidden = false;
+
+  const panel = document.createElement("div");
+  panel.className = "combo-config__panel";
+
+  comboDraft.slots.forEach(function (slot, i) {
+    panel.appendChild(crearPasoCombo(slot, i, producto));
+  });
+
+  const pie = document.createElement("div");
+  pie.className = "box-tipo__pie";
+
+  const precio = document.createElement("span");
+  precio.className = "box-tipo__precio";
+  precio.textContent = formatearPrecio(producto.precio);
+  pie.appendChild(precio);
+
+  const btn = document.createElement("button");
+  btn.className = "box-agregar";
+  btn.textContent = "Agregar combo";
+  btn.disabled = !comboCompleto();
+  btn.addEventListener("click", function () {
+    agregarCombo(producto);
+  });
+  pie.appendChild(btn);
+
+  panel.appendChild(pie);
+  cont.appendChild(panel);
+}
+
+// Un paso del armado: título numerado + el selector según el tipo de parte.
+function crearPasoCombo(slot, i, producto) {
+  const paso = document.createElement("div");
+  paso.className = "combo-paso";
+
+  const t = document.createElement("p");
+  t.className = "combo-paso__t";
+  const num = document.createElement("span");
+  num.className = "combo-paso__num";
+  num.textContent = i + 1;
+  t.appendChild(num);
+  const label = document.createElement("span");
+  label.textContent =
+    slot.total > 1 ? slot.label + " " + (slot.indice + 1) : slot.label;
+  t.appendChild(label);
+  paso.appendChild(t);
+
+  if (slot.elegir === "producto") {
+    // Sin precio: el combo tiene precio fijo, no importa qué parte elijas.
+    const opciones = productosDeCategoria(slot.categoria).map(function (p) {
+      return { id: p.id, nombre: p.nombre, imagen: p.imagen };
+    });
+    paso.appendChild(
+      crearDropdownGenerico(opciones, slot.sel, "Elegí…", [], function (id) {
+        slot.sel = id;
+        dibujarComboConfig(producto);
+      }),
+    );
+  } else if (slot.elegir === "box") {
+    paso.appendChild(crearPasoBox(slot, producto));
+  }
+
+  return paso;
+}
+
+// Cuerpo del paso "box": chips para el tipo y, si hace falta, los sabores.
+function crearPasoBox(slot, producto) {
+  const cont = document.createElement("div");
+  const cat = categoriasPorId[slot.categoria];
+
+  const chips = document.createElement("div");
+  chips.className = "combo-chips";
+  cat.tiposBox.forEach(function (tipo) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className =
+      "combo-chip" +
+      (slot.sel && slot.sel.tipo === tipo.id ? " combo-chip--on" : "");
+    chip.textContent = tipo.nombre;
+    chip.addEventListener("click", function () {
+      slot.sel = { tipo: tipo.id };
+      if (tipo.cantidadSabores) slot.sel.sabores = [];
+      dibujarComboConfig(producto);
+    });
+    chips.appendChild(chip);
+  });
+  cont.appendChild(chips);
+
+  if (slot.sel && slot.sel.tipo) {
+    const tipo = cat.tiposBox.find(function (t) {
+      return t.id === slot.sel.tipo;
+    });
+
+    const desc = document.createElement("p");
+    desc.className = "combo-paso__desc";
+    desc.textContent = tipo.descripcion;
+    cont.appendChild(desc);
+
+    if (tipo.cantidadSabores) {
+      while (slot.sel.sabores.length < tipo.cantidadSabores)
+        slot.sel.sabores.push(null);
+      const sabores = productosDeCategoria(slot.categoria).map(function (s) {
+        return { id: s.id, nombre: s.nombre, imagen: s.imagen };
+      });
+      for (let j = 0; j < tipo.cantidadSabores; j++) {
+        const excluir = slot.sel.sabores.filter(function (x, k) {
+          return k !== j && x;
+        });
+        cont.appendChild(
+          crearDropdownGenerico(
+            sabores,
+            slot.sel.sabores[j],
+            "Elegí un sabor…",
+            excluir,
+            (function (idx) {
+              return function (id) {
+                slot.sel.sabores[idx] = id;
+                dibujarComboConfig(producto);
+              };
+            })(j),
+          ),
+        );
+      }
+    }
+  }
+
+  return cont;
+}
+
+// Desplegable genérico con miniatura (sirve para tartas y para sabores).
+// opciones: [{ id, nombre, imagen, precioTexto? }]. excluir: ids a ocultar.
+function crearDropdownGenerico(
+  opciones,
+  valorSel,
+  placeholder,
+  excluir,
+  onSelect,
+) {
+  const dd = document.createElement("div");
+  dd.className = "dd";
+
+  const elegido = valorSel
+    ? opciones.find(function (o) {
+        return o.id === valorSel;
+      })
+    : null;
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "dd__toggle";
+  if (elegido) {
+    toggle.appendChild(crearThumb(elegido));
+    const txt = document.createElement("span");
+    txt.className = "dd__txt";
+    txt.textContent = elegido.nombre;
+    toggle.appendChild(txt);
+  } else {
+    const txt = document.createElement("span");
+    txt.className = "dd__txt dd__txt--placeholder";
+    txt.textContent = placeholder;
+    toggle.appendChild(txt);
+  }
+  const chev = document.createElement("span");
+  chev.className = "dd__chev";
+  chev.textContent = "▾";
+  toggle.appendChild(chev);
+  toggle.addEventListener("click", function (e) {
+    e.stopPropagation();
+    document.querySelectorAll(".dd--abierto").forEach(function (otro) {
+      if (otro !== dd) otro.classList.remove("dd--abierto");
+    });
+    dd.classList.toggle("dd--abierto");
+  });
+  dd.appendChild(toggle);
+
+  const menu = document.createElement("div");
+  menu.className = "dd__menu";
+  opciones.forEach(function (o) {
+    if (excluir.indexOf(o.id) !== -1) return;
+    const opt = document.createElement("button");
+    opt.type = "button";
+    opt.className = "dd__opt";
+    opt.appendChild(crearThumb(o));
+    const txt = document.createElement("span");
+    txt.className = "dd__txt";
+    txt.textContent = o.nombre;
+    opt.appendChild(txt);
+    if (o.precioTexto) {
+      const pr = document.createElement("span");
+      pr.className = "dd__precio";
+      pr.textContent = o.precioTexto;
+      opt.appendChild(pr);
+    }
+    opt.addEventListener("click", function () {
+      onSelect(o.id);
+    });
+    menu.appendChild(opt);
+  });
+  dd.appendChild(menu);
+
+  return dd;
+}
+
+// ¿Están todas las partes del combo elegidas?
+function comboCompleto() {
+  if (!comboDraft) return false;
+  return comboDraft.slots.every(function (slot) {
+    if (slot.elegir === "producto") return !!slot.sel;
+    if (slot.elegir === "box") {
+      if (!slot.sel || !slot.sel.tipo) return false;
+      const cat = categoriasPorId[slot.categoria];
+      const tipo = cat.tiposBox.find(function (t) {
+        return t.id === slot.sel.tipo;
+      });
+      if (tipo && tipo.cantidadSabores) {
+        for (let j = 0; j < tipo.cantidadSabores; j++) {
+          if (!slot.sel.sabores || !slot.sel.sabores[j]) return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  });
+}
+
+// Agrega el combo armado al pedido y cierra el panel.
+function agregarCombo(producto) {
+  if (!comboCompleto()) return;
+  combosArmados.push({
+    comboId: producto.id,
+    slots: JSON.parse(JSON.stringify(comboDraft.slots)),
+  });
+  comboDraft = null;
+  dibujarComboConfig(producto);
+  refrescarComboCuenta(producto.id);
+  refrescarBurbuja();
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
+}
+
+// Quita el combo número "indice" de la lista.
+function quitarCombo(indice) {
+  const comboId = combosArmados[indice] && combosArmados[indice].comboId;
+  combosArmados.splice(indice, 1);
+  if (comboId) refrescarComboCuenta(comboId);
+  refrescarBurbuja();
+  if (!document.getElementById("sheet").hidden) dibujarPedido();
+}
+
+// Actualiza el textito "X en tu pedido" debajo de un combo.
+function refrescarComboCuenta(comboId) {
+  const el = document.getElementById("combo-cuenta-" + comboId);
+  if (!el) return;
+  const n = combosArmados.filter(function (c) {
+    return c.comboId === comboId;
+  }).length;
+  if (n === 0) {
+    el.hidden = true;
+  } else {
+    el.hidden = false;
+    el.textContent =
+      n + (n === 1 ? " agregado al pedido" : " agregados al pedido");
+  }
+}
+
+// Texto de una parte elegida del combo (para el pedido y WhatsApp).
+function textoSlotCombo(slot) {
+  if (slot.elegir === "producto") {
+    return productosPorId[slot.sel].nombre;
+  }
+  // box
+  const nombreTipo = nombreTipoDeBox(slot.sel);
+  const sab =
+    slot.sel.sabores && slot.sel.sabores.length
+      ? ": " +
+        slot.sel.sabores
+          .map(function (id) {
+            return productosPorId[id].nombre;
+          })
+          .join(" + ")
+      : "";
+  const num = slot.total > 1 ? " " + (slot.indice + 1) : "";
+  return "Box" + num + " · " + nombreTipo + sab;
+}
+
+/* ---------- BARRA FIJA DE ABAJO ---------- */
+
+// Actualiza la barra fija (cantidad + total) y la muestra u oculta.
 function refrescarBurbuja() {
   const barra = document.getElementById("barraPedido");
   const cantEl = document.getElementById("barraCant");
   const totalEl = document.getElementById("barraTotal");
   const cantidad = contarItems();
 
-  // "1 producto" / "3 productos" (singular o plural según corresponda).
   cantEl.textContent = cantidad + (cantidad === 1 ? " producto" : " productos");
-  totalEl.textContent = formatearPrecio(calcularTotal());
+  totalEl.textContent = totalTexto();
 
-  // Si el carrito está vacío, escondemos la barra para que se vea prolijo.
   barra.hidden = cantidad === 0;
 }
 
-// Suma cuántas unidades hay en total en el carrito.
+// Cuenta items: productos sueltos (unidades) + boxes + combos.
 function contarItems() {
   let total = 0;
-  for (const id in carrito) {
-    total += carrito[id];
-  }
+  for (const id in carrito) total += carrito[id];
+  total += boxesBocaditos.length * unidadesPorBox();
+  total += combosArmados.length;
   return total;
 }
 
-// Suma el precio total del pedido.
+// Precio total del pedido: productos sueltos + boxes + combos (precio fijo).
 function calcularTotal() {
   let total = 0;
-  for (const id in carrito) {
-    total += productosPorId[id].precio * carrito[id];
-  }
+  for (const id in carrito) total += productosPorId[id].precio * carrito[id];
+  boxesBocaditos.forEach(function (box) {
+    total += precioDeBox(box);
+  });
+  combosArmados.forEach(function (combo) {
+    total += productosPorId[combo.comboId].precio;
+  });
   return total;
 }
 
-// ¿Esta categoría se vende en boxes? (tiene "unidadesPorBox" en el JSON)
-function esCategoriaBox(catId) {
-  const regla = reglasPorCategoria[catId];
-  return !!(regla && regla.unidadesPorBox);
+// ¿Hay algo "a definir" en el pedido (ej. un box personalizado)? En ese caso el
+// total mostrado no es el final: falta cotizar esa parte por WhatsApp.
+function hayADefinir() {
+  return boxesBocaditos.some(function (box) {
+    return esADefinir(box);
+  });
 }
 
-// Resume lo que hay en el carrito de una categoría de boxes: cuántas unidades,
-// cuánto sale, el detalle del surtido, cuántos boxes completos y si cierra justo.
-function resumenBox(catId) {
-  const regla = reglasPorCategoria[catId];
-  const box = regla.unidadesPorBox;
-  let suma = 0;
-  let subtotal = 0;
-  // Detalle por sabor: [{ nombre: "Rogelitos", cantidad: 10, subtotal: 9500 }, ...]
-  const items = [];
-  for (const id in carrito) {
-    if (productosPorId[id].categoria === catId) {
-      const p = productosPorId[id];
-      const cantidad = carrito[id];
-      const sub = p.precio * cantidad;
-      suma += cantidad;
-      subtotal += sub;
-      items.push({ nombre: p.nombre, cantidad: cantidad, subtotal: sub });
-    }
+// Texto del total para mostrar. Si hay algo a definir, lo aclara:
+//   - con precio + a definir -> "$19.000 + a definir"
+//   - solo a definir         -> "A definir"
+function totalTexto() {
+  const total = calcularTotal();
+  if (hayADefinir()) {
+    return total > 0 ? formatearPrecio(total) + " + a definir" : "A definir";
   }
-  return {
-    nombre: regla.nombre,
-    box: box,
-    suma: suma,
-    subtotal: subtotal,
-    items: items,
-    boxes: Math.floor(suma / box), // boxes completos
-    resto: suma % box, // lo que va en el box "en armado" (0 = cierra justo)
-    completo: suma > 0 && suma % box === 0,
-  };
+  return formatearPrecio(total);
 }
 
-// Revisa las categorías que se venden en boxes (ej. bocaditos = 20) y devuelve
-// las que están "a medias": tienen unidades pero no cierran en un múltiplo del
-// box. Si una categoría tiene 0 unidades, no aplica (no es obligatorio pedirla).
-// Devuelve una lista vacía si está todo OK, o algo como:
-//   [{ nombre: "Bocaditos", faltan: 5, box: 20 }]
-function validarBoxes() {
-  const faltantes = [];
-  for (const catId in reglasPorCategoria) {
-    if (!esCategoriaBox(catId)) continue;
-    const r = resumenBox(catId);
-    if (r.suma > 0 && r.resto !== 0) {
-      faltantes.push({
-        nombre: r.nombre,
-        faltan: r.box - r.resto,
-        completados: r.boxes, // boxes ya cerrados
-        boxNumero: r.boxes + 1, // el box que está en armado
-      });
-    }
-  }
-  return faltantes;
-}
-
-/* ---------- PROGRESO DEL BOX (barrita arriba de la sección) ---------- */
-
-// Crea la barrita de progreso de una categoría de boxes. Se actualiza después
-// con refrescarProgresos() a medida que el cliente suma/resta.
-function crearProgresoBox(catId) {
-  const cont = document.createElement("div");
-  cont.className = "box-progreso";
-  cont.id = "progreso-" + catId;
-  cont.innerHTML =
-    '<div class="box-progreso__fila">' +
-    '  <span class="box-progreso__label"></span>' +
-    '  <span class="box-progreso__cont"></span>' +
-    "</div>" +
-    '<div class="box-progreso__barra"><div class="box-progreso__relleno"></div></div>' +
-    '<p class="box-progreso__nota"></p>';
-  return cont;
-}
-
-// Actualiza TODAS las barritas de progreso de boxes según lo que haya en el carrito.
-function refrescarProgresos() {
-  for (const catId in reglasPorCategoria) {
-    if (!esCategoriaBox(catId)) continue;
-    const cont = document.getElementById("progreso-" + catId);
-    if (!cont) continue;
-
-    const r = resumenBox(catId);
-    const label = cont.querySelector(".box-progreso__label");
-    const contador = cont.querySelector(".box-progreso__cont");
-    const relleno = cont.querySelector(".box-progreso__relleno");
-    const nota = cont.querySelector(".box-progreso__nota");
-
-    if (r.suma === 0) {
-      // Sin nada elegido todavía: no mostramos la barra (aparece al sumar el 1°).
-      cont.hidden = true;
-      cont.classList.remove("box-progreso--completo");
-      continue;
-    }
-    cont.hidden = false;
-
-    if (r.completo) {
-      // Cierra justo: todos los boxes están completos.
-      label.textContent = "Box " + r.boxes;
-      contador.textContent = r.box + " / " + r.box;
-      relleno.style.width = "100%";
-      nota.textContent =
-        "✓ " + r.boxes + (r.boxes === 1 ? " box completo" : " boxes completos") +
-        " (" + r.suma + "u)";
-      cont.classList.add("box-progreso--completo");
-    } else {
-      // Hay un box "en armado": mostramos cuánto le falta.
-      const enArmado = r.boxes + 1;
-      label.textContent = "Box " + enArmado;
-      contador.textContent = r.resto + " / " + r.box;
-      relleno.style.width = Math.round((r.resto / r.box) * 100) + "%";
-      // Si ya cerró boxes, se lo reconocemos antes de pedirle el siguiente.
-      const prefijo =
-        r.boxes > 0
-          ? (r.boxes === 1 ? "1 box listo · " : r.boxes + " boxes listos · ")
-          : "";
-      nota.textContent =
-        prefijo + "te faltan " + (r.box - r.resto) +
-        " para completar el box " + enArmado;
-      cont.classList.remove("box-progreso--completo");
-    }
-  }
-}
-
-/* ---------- 6) PANEL DEL PEDIDO ---------- */
+/* ---------- 7) PANEL DEL PEDIDO ---------- */
 
 function conectarPanel() {
   document
@@ -569,19 +1347,24 @@ function conectarPanel() {
     .getElementById("btnWhatsapp")
     .addEventListener("click", enviarPorWhatsapp);
 
-  // Visor de fotos: cerrar tocando el fondo, la X o la tecla Escape.
   document.getElementById("visor").addEventListener("click", cerrarVisor);
-  document
-    .getElementById("visorCerrar")
-    .addEventListener("click", cerrarVisor);
+  document.getElementById("visorCerrar").addEventListener("click", cerrarVisor);
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") cerrarVisor();
+  });
+
+  // Cerrar los desplegables del mixto al tocar fuera de ellos.
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest(".dd")) {
+      document.querySelectorAll(".dd--abierto").forEach(function (dd) {
+        dd.classList.remove("dd--abierto");
+      });
+    }
   });
 }
 
 /* ---------- VISOR DE FOTOS (lightbox) ---------- */
 
-// Abre la imagen en grande sobre un fondo oscuro.
 function abrirVisor(src, alt) {
   const visor = document.getElementById("visor");
   const img = document.getElementById("visorImg");
@@ -591,7 +1374,6 @@ function abrirVisor(src, alt) {
   bloquearScrollFondo(true);
 }
 
-// Cierra el visor.
 function cerrarVisor() {
   document.getElementById("visor").hidden = true;
   bloquearScrollFondo(false);
@@ -610,8 +1392,6 @@ function cerrarPanel() {
   bloquearScrollFondo(false);
 }
 
-// Congela (o libera) el scroll de la página de atrás mientras hay un panel
-// abierto, así el dedo no "arrastra" el catálogo por detrás del pedido/visor.
 function bloquearScrollFondo(bloquear) {
   document.body.classList.toggle("sin-scroll", bloquear);
 }
@@ -624,13 +1404,16 @@ function dibujarPedido() {
   cont.innerHTML = "";
 
   const ids = Object.keys(carrito);
+  const vacio =
+    ids.length === 0 &&
+    boxesBocaditos.length === 0 &&
+    combosArmados.length === 0;
 
-  // Carrito vacío: mensaje y botón deshabilitado.
-  if (ids.length === 0) {
-    const vacio = document.createElement("p");
-    vacio.className = "sheet__vacio";
-    vacio.textContent = "Todavía no agregaste nada.";
-    cont.appendChild(vacio);
+  if (vacio) {
+    const p = document.createElement("p");
+    p.className = "sheet__vacio";
+    p.textContent = "Todavía no agregaste nada.";
+    cont.appendChild(p);
     totalEl.textContent = formatearPrecio(0);
     btn.disabled = true;
     return;
@@ -638,85 +1421,28 @@ function dibujarPedido() {
 
   btn.disabled = false;
 
-  // Productos sueltos (los que NO se venden en box): una línea por producto.
-  // Los de categorías de box se juntan más abajo en una sola línea por categoría.
+  // Productos sueltos: una línea por producto.
   ids.forEach(function (id) {
-    const producto = productosPorId[id];
-    if (esCategoriaBox(producto.categoria)) return; // se agrupan aparte
-
-    const cantidad = carrito[id];
-    const subtotal = producto.precio * cantidad;
-
-    const item = document.createElement("div");
-    item.className = "item";
-
-    const texto = document.createElement("div");
-    texto.className = "item__texto";
-
-    const nombre = document.createElement("div");
-    nombre.className = "item__nombre";
-    nombre.textContent = cantidad + "x " + producto.nombre;
-    texto.appendChild(nombre);
-
-    const detalle = document.createElement("div");
-    detalle.className = "item__detalle";
-    detalle.textContent = formatearPrecio(producto.precio) + " c/u";
-    texto.appendChild(detalle);
-
-    item.appendChild(texto);
-
-    const linea = document.createElement("span");
-    linea.className = "item__linea";
-    linea.textContent = formatearPrecio(subtotal);
-    item.appendChild(linea);
-
-    const quitarBtn = document.createElement("button");
-    quitarBtn.className = "item__quitar";
-    quitarBtn.textContent = "×";
-    quitarBtn.setAttribute("aria-label", "Quitar " + producto.nombre);
-    quitarBtn.addEventListener("click", function () {
-      quitar(id);
-    });
-    item.appendChild(quitarBtn);
-
-    cont.appendChild(item);
+    cont.appendChild(crearLineaSuelto(id));
   });
 
-  // Categorías de box (ej. bocaditos): una sola línea con el surtido y el total.
-  for (const catId in reglasPorCategoria) {
-    if (!esCategoriaBox(catId)) continue;
-    const r = resumenBox(catId);
-    if (r.suma === 0) continue;
-    cont.appendChild(crearLineaBox(catId, r));
-  }
+  // Boxes de bocaditos: una línea por box.
+  boxesBocaditos.forEach(function (box, i) {
+    cont.appendChild(crearLineaBox(box, i + 1, i));
+  });
 
-  totalEl.textContent = formatearPrecio(calcularTotal());
+  // Combos: una línea por combo, con sus partes.
+  combosArmados.forEach(function (combo, i) {
+    cont.appendChild(crearLineaCombo(combo, i));
+  });
 
-  // Chequeo de boxes (ej. bocaditos): si el total no cierra en un múltiplo del
-  // box, mostramos un cartel y deshabilitamos el botón hasta que se complete.
-  const faltantes = validarBoxes();
-  if (faltantes.length > 0) {
-    faltantes.forEach(function (f) {
-      const aviso = document.createElement("p");
-      aviso.className = "sheet__aviso";
-      // Si ya cerró boxes, se lo reconocemos antes de pedirle que complete el actual.
-      const prefijo =
-        f.completados > 0
-          ? "Ya tenés " + f.completados +
-            (f.completados === 1 ? " box listo. " : " boxes listos. ")
-          : "";
-      aviso.textContent =
-        prefijo + "Te faltan " + f.faltan + " para completar el box " +
-        f.boxNumero + " de " + f.nombre.toLowerCase() + ".";
-      cont.appendChild(aviso);
-    });
-    btn.disabled = true;
-  }
+  totalEl.textContent = totalTexto();
 }
 
-// Crea la línea agrupada del pedido para una categoría de boxes.
-// Ej: "1 box de bocaditos (20u)" + "10 Rogelitos · 5 Brownie · 5 Cheesecake".
-function crearLineaBox(catId, r) {
+// Línea de un combo en el pedido: nombre + precio fijo, y debajo sus partes.
+function crearLineaCombo(combo, indice) {
+  const producto = productosPorId[combo.comboId];
+
   const item = document.createElement("div");
   item.className = "item";
 
@@ -725,23 +1451,14 @@ function crearLineaBox(catId, r) {
 
   const nombre = document.createElement("div");
   nombre.className = "item__nombre";
-  if (r.completo) {
-    nombre.textContent =
-      r.boxes + (r.boxes === 1 ? " box de " : " boxes de ") +
-      r.nombre.toLowerCase() + " (" + r.suma + "u)";
-  } else {
-    // Aún no cierra el box: lo mostramos igual, el cartel de abajo avisa.
-    nombre.textContent = r.nombre + " (" + r.suma + "u, falta completar)";
-  }
+  nombre.textContent = producto.nombre;
   texto.appendChild(nombre);
 
-  // Detalle por sabor, una línea por cada uno con su subtotal.
   const detalle = document.createElement("div");
   detalle.className = "item__detalle";
-  r.items.forEach(function (it) {
+  combo.slots.forEach(function (slot) {
     const fila = document.createElement("div");
-    fila.textContent =
-      it.cantidad + "x " + it.nombre + " — " + formatearPrecio(it.subtotal);
+    fila.textContent = textoSlotCombo(slot);
     detalle.appendChild(fila);
   });
   texto.appendChild(detalle);
@@ -750,99 +1467,203 @@ function crearLineaBox(catId, r) {
 
   const linea = document.createElement("span");
   linea.className = "item__linea";
-  linea.textContent = formatearPrecio(r.subtotal);
+  linea.textContent = formatearPrecio(producto.precio);
   item.appendChild(linea);
 
   const quitarBtn = document.createElement("button");
   quitarBtn.className = "item__quitar";
   quitarBtn.textContent = "×";
-  quitarBtn.setAttribute("aria-label", "Quitar " + r.nombre.toLowerCase());
+  quitarBtn.setAttribute("aria-label", "Quitar " + producto.nombre);
   quitarBtn.addEventListener("click", function () {
-    quitarCategoria(catId);
+    quitarCombo(indice);
   });
   item.appendChild(quitarBtn);
 
   return item;
 }
 
-/* ---------- 7) ENVIAR POR WHATSAPP ---------- */
+// Línea de un producto suelto en el pedido.
+function crearLineaSuelto(id) {
+  const producto = productosPorId[id];
+  const cantidad = carrito[id];
+  const subtotal = producto.precio * cantidad;
+
+  const item = document.createElement("div");
+  item.className = "item";
+
+  const texto = document.createElement("div");
+  texto.className = "item__texto";
+
+  const nombre = document.createElement("div");
+  nombre.className = "item__nombre";
+  nombre.textContent = cantidad + "x " + producto.nombre;
+  texto.appendChild(nombre);
+
+  const detalle = document.createElement("div");
+  detalle.className = "item__detalle";
+  detalle.textContent = formatearPrecio(producto.precio) + " c/u";
+  texto.appendChild(detalle);
+
+  item.appendChild(texto);
+
+  const linea = document.createElement("span");
+  linea.className = "item__linea";
+  linea.textContent = formatearPrecio(subtotal);
+  item.appendChild(linea);
+
+  const quitarBtn = document.createElement("button");
+  quitarBtn.className = "item__quitar";
+  quitarBtn.textContent = "×";
+  quitarBtn.setAttribute("aria-label", "Quitar " + producto.nombre);
+  quitarBtn.addEventListener("click", function () {
+    quitar(id);
+  });
+  item.appendChild(quitarBtn);
+
+  return item;
+}
+
+// Línea de un box en el pedido. Ej:
+//   "Box 1 · Variedad (20u)" + "4x Rogelitos — $3.800 / 4x Brownie — …"
+function crearLineaBox(box, numero, indice) {
+  const item = document.createElement("div");
+  item.className = "item";
+
+  const texto = document.createElement("div");
+  texto.className = "item__texto";
+
+  const nombre = document.createElement("div");
+  nombre.className = "item__nombre";
+  nombre.textContent =
+    "Box " +
+    numero +
+    " · " +
+    nombreTipoDeBox(box) +
+    (esADefinir(box) ? "" : " (" + unidadesPorBox() + "u)");
+  texto.appendChild(nombre);
+
+  const detalle = document.createElement("div");
+  detalle.className = "item__detalle";
+  if (esADefinir(box)) {
+    const fila = document.createElement("div");
+    fila.textContent = "A definir por WhatsApp";
+    detalle.appendChild(fila);
+  } else {
+    contenidoDeBox(box).forEach(function (it) {
+      const fila = document.createElement("div");
+      fila.textContent =
+        it.cantidad +
+        "x " +
+        it.nombre +
+        " — " +
+        formatearPrecio(it.precio * it.cantidad);
+      detalle.appendChild(fila);
+    });
+  }
+  texto.appendChild(detalle);
+
+  item.appendChild(texto);
+
+  const linea = document.createElement("span");
+  linea.className = "item__linea";
+  linea.textContent = precioTextoDeBox(box);
+  item.appendChild(linea);
+
+  const quitarBtn = document.createElement("button");
+  quitarBtn.className = "item__quitar";
+  quitarBtn.textContent = "×";
+  quitarBtn.setAttribute("aria-label", "Quitar box " + numero);
+  quitarBtn.addEventListener("click", function () {
+    quitarBox(indice);
+  });
+  item.appendChild(quitarBtn);
+
+  return item;
+}
+
+/* ---------- 8) ENVIAR POR WHATSAPP ---------- */
 
 function enviarPorWhatsapp() {
   if (contarItems() === 0) return;
 
-  // Segunda barrera: si algún box no cierra (ej. 15 bocaditos), no armamos ni
-  // enviamos el mensaje. El panel ya avisa cuánto falta.
-  if (validarBoxes().length > 0) return;
-
-  // Armamos el texto del mensaje línea por línea.
   const lineas = [];
-  lineas.push(config.whatsapp.mensaje_saludo); // saludo configurable (config.json)
-  lineas.push(""); // línea en blanco
+  lineas.push(config.whatsapp.mensaje_saludo);
+  lineas.push("");
 
-  // Productos sueltos (los que no son de box): una línea por producto.
+  // Productos sueltos.
   for (const id in carrito) {
     const producto = productosPorId[id];
-    if (esCategoriaBox(producto.categoria)) continue; // se agrupan abajo
     const cantidad = carrito[id];
     const subtotal = producto.precio * cantidad;
-    // Ejemplo: "2x Tarta de Nuez - $90.000"
     lineas.push(
       cantidad + "x " + producto.nombre + " - " + formatearPrecio(subtotal),
     );
   }
 
-  // Categorías de box (ej. bocaditos): un encabezado con el total del box y
-  // debajo el detalle por sabor con su subtotal. Ejemplo:
-  //   1 box de bocaditos (20u) - $21.000
-  //     • 10x Rogelitos - $9.500
-  //     • 5x Brownie - $4.000
-  for (const catId in reglasPorCategoria) {
-    if (!esCategoriaBox(catId)) continue;
-    const r = resumenBox(catId);
-    if (r.suma === 0) continue;
-    lineas.push(
-      r.boxes + (r.boxes === 1 ? " box de " : " boxes de ") +
-      r.nombre.toLowerCase() + " (" + r.suma + "u) - " + formatearPrecio(r.subtotal),
-    );
-    r.items.forEach(function (it) {
+  // Boxes: un encabezado por box y debajo su detalle por sabor.
+  //   Box 1 · Variedad (20u) - $X
+  //     • 4x Rogelitos - $3.800
+  boxesBocaditos.forEach(function (box, i) {
+    if (esADefinir(box)) {
       lineas.push(
-        "  • " + it.cantidad + "x " + it.nombre + " - " + formatearPrecio(it.subtotal),
+        "Box " + (i + 1) + " · " + nombreTipoDeBox(box) + " - A definir",
+      );
+      return;
+    }
+    lineas.push(
+      "Box " +
+        (i + 1) +
+        " · " +
+        nombreTipoDeBox(box) +
+        " (" +
+        unidadesPorBox() +
+        "u) - " +
+        formatearPrecio(precioDeBox(box)),
+    );
+    contenidoDeBox(box).forEach(function (it) {
+      lineas.push(
+        "  • " +
+          it.cantidad +
+          "x " +
+          it.nombre +
+          " - " +
+          formatearPrecio(it.precio * it.cantidad),
       );
     });
-  }
+  });
 
-  lineas.push(""); // línea en blanco
-  lineas.push("Total: " + formatearPrecio(calcularTotal()));
+  // Combos: nombre + precio fijo, y debajo cada parte elegida.
+  //   Combo Cumpleaños - $60.000
+  //     • Tarta de Nuez
+  //     • Box 1 · Variedad
+  combosArmados.forEach(function (combo) {
+    const producto = productosPorId[combo.comboId];
+    lineas.push(producto.nombre + " - " + formatearPrecio(producto.precio));
+    combo.slots.forEach(function (slot) {
+      lineas.push("  • " + textoSlotCombo(slot));
+    });
+  });
 
-  // Unimos con saltos de línea y codificamos para que viaje bien en la URL.
+  lineas.push("");
+  lineas.push("Total: " + totalTexto());
+
   const mensaje = encodeURIComponent(lineas.join("\n"));
   const url = "https://wa.me/" + config.whatsapp.numero + "?text=" + mensaje;
-
-  // Abrimos WhatsApp (app o web) en otra pestaña.
   window.open(url, "_blank");
 }
 
-/* ---------- 8) SCROLLSPY (chip activo según el scroll) ---------- */
+/* ---------- 9) SCROLLSPY + UTILIDADES ---------- */
 
-// Usamos IntersectionObserver: el navegador nos avisa qué secciones están
-// visibles, sin tener que calcular posiciones a mano.
 function activarScrollspy() {
   const secciones = document.querySelectorAll(".seccion");
 
   const observer = new IntersectionObserver(
     function (entradas) {
       entradas.forEach(function (entrada) {
-        if (entrada.isIntersecting) {
-          marcarChipActivo(entrada.target.id);
-        }
+        if (entrada.isIntersecting) marcarChipActivo(entrada.target.id);
       });
     },
-    {
-      // La "línea de detección" está cerca de la parte de arriba de la pantalla
-      // (debajo de los chips). Cuando una sección la cruza, se marca su chip.
-      rootMargin: "-80px 0px -70% 0px",
-      threshold: 0,
-    },
+    { rootMargin: "-80px 0px -70% 0px", threshold: 0 },
   );
 
   secciones.forEach(function (seccion) {
@@ -850,15 +1671,11 @@ function activarScrollspy() {
   });
 }
 
-// Resalta el chip que apunta a la sección dada y apaga los demás.
 function marcarChipActivo(idSeccion) {
   const chips = document.querySelectorAll(".chip");
   chips.forEach(function (chip) {
     const activo = chip.dataset.target === idSeccion;
     chip.classList.toggle("chip--activo", activo);
-
-    // Si el chip activo quedó fuera de vista en la barra scrolleable,
-    // lo traemos a la vista (sin mover la página vertical).
     if (activo) {
       chip.scrollIntoView({
         behavior: "smooth",
@@ -868,8 +1685,6 @@ function marcarChipActivo(idSeccion) {
     }
   });
 }
-
-/* ---------- UTILIDAD: formato de precio en pesos argentinos ---------- */
 
 // 45000 -> "$45.000"
 function formatearPrecio(numero) {
