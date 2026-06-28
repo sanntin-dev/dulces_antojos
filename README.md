@@ -98,12 +98,11 @@ campos al lado de `"id"` y `"nombre"`, antes de `"productos"`:
   "nombre": "Bocaditos",
   "nota": "Se arman en boxes de 20 unidades a elección",
   "unidadesPorBox": 20,
-  "imagenBox": "img/productos/box.jpg",
   "tiposBox": [
-    { "id": "variedad", "nombre": "Variedad", "descripcion": "4 de cada uno · las 5 variedades" },
-    { "id": "mixto", "nombre": "Mixto", "descripcion": "10 y 10 · elegís 2 sabores", "cantidadSabores": 2 },
-    { "id": "unsabor", "nombre": "Un solo sabor", "descripcion": "20 del sabor que elijas", "cantidadSabores": 1 },
-    { "id": "personalizado", "nombre": "Personalizado", "descripcion": "lo armás como quieras · a definir por WhatsApp", "definirDespues": true }
+    { "id": "variedad", "nombre": "Variedad", "descripcion": "4 de cada uno · las 5 variedades", "imagen": "img/productos/box.jpg" },
+    { "id": "mixto", "nombre": "Mixto", "descripcion": "10 y 10 · elegís 2 sabores", "cantidadSabores": 2, "imagen": "img/productos/box.jpg" },
+    { "id": "unsabor", "nombre": "Un solo sabor", "descripcion": "20 del sabor que elijas", "cantidadSabores": 1, "imagen": "img/productos/box.jpg" },
+    { "id": "personalizado", "nombre": "Personalizado", "descripcion": "lo armás como quieras · a definir por WhatsApp", "definirDespues": true, "imagen": "img/productos/box.jpg" }
   ],
   "productos": [ ... ]
 }
@@ -111,16 +110,14 @@ campos al lado de `"id"` y `"nombre"`, antes de `"productos"`:
 
 - **`nota`**: texto que aparece debajo del título de la categoría (sirve en cualquier categoría).
 - **`unidadesPorBox`**: cuántas unidades tiene un box (ej. `20`).
-- **`imagenBox`**: la foto que se usa para **todos** los tipos de box. Si el archivo
-  no existe, usa la del primer sabor (no se rompe).
 - **`tiposBox`**: la lista de **tipos de box** que el cliente puede armar. Cada uno tiene:
   - **`id`** (único), **`nombre`** y **`descripcion`** (el textito de abajo).
+  - **`imagen`**: la foto que se muestra para ese tipo de box.
   - **`cantidadSabores`** (opcional): si está, el cliente elige esa cantidad de sabores
     con desplegables (Mixto = `2`, Un solo sabor = `1`). Si **no** está, el box lleva
     **todos** los sabores en partes iguales (Variedad).
   - **`definirDespues`** (opcional): si está en `true`, el box no tiene precio ni armado
     fijo — se cotiza por WhatsApp (Personalizado).
-  - **`imagen`** (opcional): una foto propia para ese tipo; si no, usa la `imagenBox`.
 
 El **precio de cada box** es la suma de los sabores que lleva (el Personalizado va "a definir").
 

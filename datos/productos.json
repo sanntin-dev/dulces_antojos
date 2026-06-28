@@ -51,12 +51,34 @@
       "nombre": "Bocaditos",
       "nota": "Se arman en boxes de 20 unidades a elección",
       "unidadesPorBox": 20,
-      "imagenBox": "img/productos/box.jpg",
       "tiposBox": [
-        { "id": "variedad", "nombre": "Variedad", "descripcion": "4 de cada uno · las 5 variedades" },
-        { "id": "mixto", "nombre": "Mixto", "descripcion": "10 y 10 · elegís 2 sabores", "cantidadSabores": 2 },
-        { "id": "unsabor", "nombre": "Un solo sabor", "descripcion": "20 del sabor que elijas", "cantidadSabores": 1 },
-        { "id": "personalizado", "nombre": "Personalizado", "descripcion": "lo armás como quieras · a definir por WhatsApp", "definirDespues": true }
+        {
+          "id": "variedad",
+          "nombre": "Variedad",
+          "descripcion": "4 de cada uno · las 5 variedades",
+          "imagen": "img/productos/box.jpg"
+        },
+        {
+          "id": "mixto",
+          "nombre": "Mixto",
+          "descripcion": "10 y 10 · elegís 2 sabores",
+          "cantidadSabores": 2,
+          "imagen": "img/productos/rogelitos.jpg"
+        },
+        {
+          "id": "unsabor",
+          "nombre": "Un solo sabor",
+          "descripcion": "20 del sabor que elijas",
+          "cantidadSabores": 1,
+          "imagen": "img/productos/box.jpg"
+        },
+        {
+          "id": "personalizado",
+          "nombre": "Personalizado",
+          "descripcion": "lo armás como quieras · a definir por WhatsApp",
+          "definirDespues": true,
+          "imagen": "img/productos/box.jpg"
+        }
       ],
       "productos": [
         {
@@ -166,8 +188,18 @@
           "imagen": "img/productos/combo-cumple.jpg",
           "activo": 1,
           "componentes": [
-            { "elegir": "producto", "categoria": "tartas", "cantidad": 1, "label": "Elegí tu tarta" },
-            { "elegir": "box", "categoria": "bocaditos", "cantidad": 2, "label": "Box" }
+            {
+              "elegir": "producto",
+              "categoria": "tartas",
+              "cantidad": 1,
+              "label": "Elegí tu tarta"
+            },
+            {
+              "elegir": "box",
+              "categoria": "bocaditos",
+              "cantidad": 2,
+              "label": "Box"
+            }
           ]
         }
       ]
